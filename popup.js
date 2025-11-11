@@ -8,49 +8,72 @@ const fontToggleBtn = document.getElementById('font-toggle-btn');
 const lineHeightSlider = document.getElementById('line-height-slider');
 const letterSpacingSlider = document.getElementById('letter-spacing-slider');
 
-// --- This is our "main" function. It runs as soon as the popup opens ---
+// --- Helper function to handle errors ---
+function handleScriptingError() {
+  if (chrome.runtime.lastError) {
+    console.warn(`EchoRead: Could not run on this page. ${chrome.runtime.lastError.message}`);
+    // You could also alert the user, but a silent fail is cleaner.
+    // alert("EchoRead cannot run on this protected page (e.g., Chrome Web Store, Google pages).");
+    return true; // Indicates an error
+  }
+  return false; // No error
+}
+
+// --- Main "main" function ---
 document.addEventListener('DOMContentLoaded', () => {
   chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+    if (!tabs[0] || !tabs[0].url) return; // Failsafe for empty tabs
+    
     const currentTab = tabs[0];
     const url = currentTab.url;
 
+    // Check if it's a PDF
     if (url.endsWith('.pdf')) {
       pdfControls.classList.remove('hidden');
       htmlControls.classList.add('hidden');
     } else {
-      pdfControls.classList.add('hidden');
-      htmlControls.classList.remove('hidden');
+      // Check if it's a restricted page (like chrome:// or https://chrome.google.com)
+      if (url.startsWith('chrome://') || url.startsWith('https://chrome.google.com') || url.startsWith('https://aistudio.google.com')) {
+        // It's a protected page, hide everything
+        pdfControls.classList.add('hidden');
+        htmlControls.classList.add('hidden');
+        // You could show a "disabled" message here
+      } else {
+        // It's a normal HTML page
+        pdfControls.classList.add('hidden');
+        htmlControls.classList.remove('hidden');
+      }
     }
   });
 });
 
 
-// --- PDF CONVERSION LOGIC (NEW v2.2 "JIT Edition") ---
+// --- PDF CONVERSION LOGIC (Now with error handling) ---
 convertPdfBtn.addEventListener('click', () => {
   convertPdfBtn.textContent = 'Loading PDF...';
   convertPdfBtn.disabled = true;
 
   chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-    const currentTab = tabs[0];
-    // Step 1: Inject pdf.js
     chrome.scripting.executeScript({
-      target: { tabId: currentTab.id },
-      files: ['pdf.js']
+      target: { tabId: tabs[0].id },
+      files: ['pdf.js'] // In your repo, this is 'pdf.mjs'
     }, () => {
-      // Step 2: Inject our new 'Just-In-Time' parser
+      if (handleScriptingError()) return; // <-- ERROR CHECK
+      
       chrome.scripting.executeScript({
-        target: { tabId: currentTab.id },
-        function: initializePdfViewer, // This is our new main function
+        target: { tabId: tabs[0].id },
+        function: initializePdfViewer,
         args: [
-          chrome.runtime.getURL('pdf.worker.mjs'),
-          chrome.runtime.getURL('viewer.css')
+          chrome.runtime.getURL('pdf.worker.mjs'), // 'pdf.worker.mjs'
+          chrome.runtime.getURL('viewer.css') // This was 'viewer.mjs' in your repo, but CSS is better
         ]
       });
     });
   });
 });
 
-// This function loads the PDF and builds the "viewer" shell
+// ... (The 'initializePdfViewer' function is unchanged) ...
+// (Pasting it here for completeness)
 async function initializePdfViewer(workerUrl, cssUrl) {
   // 1. Setup PDF.js and load the document
   pdfjsLib.GlobalWorkerOptions.workerSrc = workerUrl;
@@ -62,38 +85,13 @@ async function initializePdfViewer(workerUrl, cssUrl) {
     <html>
     <head>
       <title>EchoRead - ${pdf.numPages} Page PDF</title>
-      <link rel="stylesheet" href="${cssUrl}">
+      ${cssUrl.endsWith('.css') ? `<link rel="stylesheet" href="${cssUrl}">` : ''}
       <style>
         body { background: #f5f5f5; padding-top: 80px; font-family: sans-serif; }
-        #page-container {
-          background: white;
-          margin: 20px auto;
-          max-width: 800px;
-          min-height: 80vh; /* Make sure it's tall */
-          box-shadow: 0 0 10px rgba(0,0,0,0.1);
-          padding: 40px;
-        }
+        #page-container { background: white; margin: 20px auto; max-width: 800px; min-height: 80vh; box-shadow: 0 0 10px rgba(0,0,0,0.1); padding: 40px; }
         .textLayer { line-height: 1.6; font-size: 18px; }
-        
-        /* Navigation Bar */
-        #nav-bar {
-          position: fixed; top: 0; left: 0;
-          width: 100%;
-          background: #333;
-          color: white;
-          display: flex;
-          justify-content: center;
-          align-items: center;
-          padding: 10px;
-          z-index: 9999;
-          box-shadow: 0 2px 5px rgba(0,0,0,0.3);
-        }
-        #nav-bar button {
-          font-size: 16px;
-          padding: 8px 16px;
-          margin: 0 10px;
-          cursor: pointer;
-        }
+        #nav-bar { position: fixed; top: 0; left: 0; width: 100%; background: #333; color: white; display: flex; justify-content: center; align-items: center; padding: 10px; z-index: 9999; box-shadow: 0 2px 5px rgba(0,0,0,0.3); }
+        #nav-bar button { font-size: 16px; padding: 8px 16px; margin: 0 10px; cursor: pointer; }
         #nav-bar button:disabled { background: #777; cursor: not-allowed; }
         #page-num { font-size: 18px; font-weight: bold; }
       </style>
@@ -104,13 +102,7 @@ async function initializePdfViewer(workerUrl, cssUrl) {
         <span id="page-num">Loading...</span>
         <button id="next-btn">Next</button>
       </div>
-      
-      <div id="page-container">
-        <div id="text-content-layer" class="textLayer">
-          <h1>Loading Page 1...</h1>
-        </div>
-      </div>
-      
+      <div id="page-container"><div id="text-content-layer" class="textLayer"><h1>Loading Page 1...</h1></div></div>
       <script>
         // Global variables for this new page
         let pdfDoc = null;
@@ -126,29 +118,21 @@ async function initializePdfViewer(workerUrl, cssUrl) {
         // This is our core "Just-In-Time" function
         async function renderPage(num) {
           try {
-            // Get the page
             const page = await pdfDoc.getPage(num);
             const textContent = await page.getTextContent();
             
-            // Build the HTML for the page
             let pageText = "";
             for (const item of textContent.items) {
               pageText += item.str + " ";
               if (item.hasEOL) { pageText += "<br>"; }
             }
             
-            // Render it to the screen
             textContentLayer.innerHTML = pageText;
             
-            // Update UI
             currentPageNum = num;
             pageNumDisplay.textContent = \`Page \${currentPageNum} / \${totalPages}\`;
-            
-            // Enable/disable buttons
             prevBtn.disabled = (currentPageNum <= 1);
             nextBtn.disabled = (currentPageNum >= totalPages);
-            
-            // Scroll to top
             window.scrollTo(0, 0);
             
           } catch (err) {
@@ -158,53 +142,24 @@ async function initializePdfViewer(workerUrl, cssUrl) {
         }
         
         // Add button event listeners
-        prevBtn.addEventListener('click', () => {
-          if (currentPageNum > 1) {
-            renderPage(currentPageNum - 1);
-          }
-        });
+        prevBtn.addEventListener('click', () => { if (currentPageNum > 1) renderPage(currentPageNum - 1); });
+        nextBtn.addEventListener('click', () => { if (currentPageNum < totalPages) renderPage(currentPageNum + 1); });
         
-        nextBtn.addEventListener('click', () => {
-          if (currentPageNum < totalPages) {
-            renderPage(currentPageNum + 1);
-          }
-        });
-        
-        // KICK IT OFF: Store the loaded PDF and render Page 1
-        pdfDoc = pdfjsLib.getDocument(window.location.href).promise;
-        
-        // This is a bit tricky: 'pdf' in the outer scope
-        // is not the same as 'pdfDoc' here. We need to
-        // get the document *again* inside this new page.
-        // Let's optimize this.
-        
-        // --- OPTIMIZATION ---
-        // Storing the 'pdf' object is hard. Let's just
-        // store the URL and re-load the library.
-        
+        // KICK IT OFF
         (async function() {
           try {
-            // Load the PDF library *inside* the new page
             const script = document.createElement('script');
-            script.src = "${chrome.runtime.getURL('pdf.js')}";
+            script.src = "${chrome.runtime.getURL('pdf.mjs')}"; // Using 'pdf.mjs' from your repo
             document.head.appendChild(script);
             
             script.onload = async () => {
-              // Now that pdf.js is loaded, set up the worker
               pdfjsLib.GlobalWorkerOptions.workerSrc = "${chrome.runtime.getURL('pdf.worker.mjs')}";
-              
-              // Load the document
               const loadingTask = pdfjsLib.getDocument(window.location.href);
-              pdfDoc = await loadingTask.promise; // Assign to our global var
-              
-              // Now, render the first page
+              pdfDoc = await loadingTask.promise;
               renderPage(1);
             }
-          } catch (err) {
-            console.error('Failed to load PDF lib:', err);
-          }
+          } catch (err) { console.error('Failed to load PDF lib:', err); }
         })();
-        
       </script>
     </body>
     </html>
@@ -216,24 +171,22 @@ async function initializePdfViewer(workerUrl, cssUrl) {
   document.close();
 }
 
+// --- HTML PAGE FUNCTIONS (Now with error handling) ---
 
-// --- ALL OUR OLD HTML-PAGE FUNCTIONS (No changes) ---
-// (These are 100% the same as before, for HTML pages)
-
-// --- 1. "Clean View" Button ---
 cleanViewBtn.addEventListener('click', () => {
   chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-    const currentTab = tabs[0];
-    chrome.scripting.executeScript({ target: { tabId: currentTab.id }, files: ['Readability.js'] }, () => {
+    chrome.scripting.executeScript({ target: { tabId: tabs[0].id }, files: ['readability.js'] }, () => {
+      if (handleScriptingError()) return; // <-- ERROR CHECK
+      
       chrome.scripting.executeScript({
-        target: { tabId: currentTab.id },
+        target: { tabId: tabs[0].id },
         function: parseArticleWithReadability,
-        args: [currentTab.url]
-      });
+        args: [tabs[0].url]
+      }, () => handleScriptingError()); // <-- ERROR CHECK
     });
   });
 });
-
+// ... (parseArticleWithReadability function is unchanged) ...
 function parseArticleWithReadability(pageUrl) {
   window.scrollTo(0, document.body.scrollHeight);
   setTimeout(() => {
@@ -265,12 +218,15 @@ function parseArticleWithReadability(pageUrl) {
   }, 1000);
 }
 
-// --- 2. Font Toggle Button ---
+
 fontToggleBtn.addEventListener('click', () => {
   chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-    chrome.scripting.executeScript({ target: { tabId: tabs[0].id }, function: toggleDyslexicFont });
+    chrome.scripting.executeScript({ target: { tabId: tabs[0].id }, function: toggleDyslexicFont }, () => {
+      handleScriptingError(); // <-- ERROR CHECK
+    });
   });
 });
+// ... (toggleDyslexicFont function is unchanged) ...
 function toggleDyslexicFont() {
   const FONT_NAME = 'OpenDyslexic';
   const FONT_URL = chrome.runtime.getURL('OpenDyslexic-Regular.otf');
@@ -290,7 +246,6 @@ function toggleDyslexicFont() {
   }
 }
 
-// --- 3. Spacing Sliders ---
 lineHeightSlider.addEventListener('input', (e) => {
   const newHeight = e.target.value;
   chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
@@ -303,9 +258,10 @@ lineHeightSlider.addEventListener('input', (e) => {
         styleEl.textContent = `* { line-height: ${height} !important; }`;
       },
       args: [newHeight]
-    });
+    }, () => handleScriptingError()); // <-- ERROR CHECK
   });
 });
+
 letterSpacingSlider.addEventListener('input', (e) => {
   const newSpacing = e.target.value;
   chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
@@ -318,6 +274,6 @@ letterSpacingSlider.addEventListener('input', (e) => {
         styleEl.textContent = `* { letter-spacing: ${spacing}px !important; }`;
       },
       args: [newSpacing]
-    });
+    }, () => handleScriptingError()); // <-- ERROR CHECK
   });
 });
