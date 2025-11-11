@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <title>EchoRead PDF Viewer</title>
   <style>
+    /* ... (all the CSS is the same as before) ... */
     body { background: #f5f5f5; padding-top: 80px; font-family: sans-serif; margin: 0; }
     #page-container {
       background: white; margin: 20px auto; max-width: 800px;
@@ -13,7 +14,6 @@
     .textLayer {
       line-height: 1.6; font-size: 18px; white-space: pre-wrap;
       position: absolute; top: 40px; left: 40px; right: 40px; bottom: 40px;
-      /* Background for text to overlay image */
       background: rgba(255,255,255,0.9);
       padding: 40px; /* Adjust if needed to match container */
     }
@@ -46,7 +46,7 @@
     <div id="text-content-layer" class="textLayer"></div>
   </div>
 
-  <script src="pdf.mjs"></script>
-  <script src="tesseract.min.js"></script>
-  <script src="pdf-viewer.js"></script> </body>
+  <script type="module" src="pdf-viewer.js"></script>
+
+</body>
 </html>
