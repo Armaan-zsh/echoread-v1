@@ -18,23 +18,26 @@
       border-top: 1px solid #ccc;
       padding-top: 10px;
     }
+    .control-group label { font-size: 14px; }
     
-    /* --- NEW --- */
-    #html-controls {
-      display: none; /* Hide the controls by default */
+    #html-controls, #pdf-controls, #status-message {
+      display: none; /* Hide all by default */
     }
     #status-message {
       font-size: 13px;
       text-align: center;
       padding: 10px;
-      display: block; /* Show status by default */
     }
-    /* --- END NEW --- */
-    
+    button:disabled { background: #ccc; cursor: not-allowed; }
   </style>
 </head>
 <body>
-  <h3>EchoRead v3.2</h3>
+  <h3>EchoRead v4.0</h3>
+
+  <div id="pdf-controls">
+    <button id="convert-pdf-btn">📚 Convert this PDF (OCR)</button>
+    <p style="font-size: 12px; text-align: center;">This page is a PDF. Convert it with OCR to use EchoRead.</p>
+  </div>
 
   <div id="html-controls">
     <button id="clean-view-btn">Focus Mode (Clean View)</button>
