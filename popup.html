@@ -18,21 +18,25 @@
       border-top: 1px solid #ccc;
       padding-top: 10px;
     }
-    .control-group label { font-size: 14px; }
-    /* This will hide/disable elements */
-    .hidden { display: none; }
-    button:disabled { background: #ccc; cursor: not-allowed; }
+    
+    /* --- NEW --- */
+    #html-controls {
+      display: none; /* Hide the controls by default */
+    }
+    #status-message {
+      font-size: 13px;
+      text-align: center;
+      padding: 10px;
+      display: block; /* Show status by default */
+    }
+    /* --- END NEW --- */
+    
   </style>
 </head>
 <body>
-  <h3>EchoRead v2.0</h3>
+  <h3>EchoRead v3.2</h3>
 
-  <div id="pdf-controls" class="control-group hidden">
-    <button id="convert-pdf-btn">📚 Convert this PDF</button>
-    <p style="font-size: 12px; text-align: center;">This page is a PDF. Convert it to an HTML article to use EchoRead.</p>
-  </div>
-
-  <div id="html-controls" class="control-group hidden">
+  <div id="html-controls">
     <button id="clean-view-btn">Focus Mode (Clean View)</button>
     <button id="font-toggle-btn">Toggle Dyslexic Font</button>
     <div class="control-group">
@@ -43,6 +47,10 @@
       <label for="letter-spacing-slider">Letter Spacing</label>
       <input type="range" id="letter-spacing-slider" min="0" max="10" step="0.5" value="0">
     </div>
+  </div>
+
+  <div id="status-message">
+    <p>Checking page...</p>
   </div>
 
   <script src="popup.js"></script>
