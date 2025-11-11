@@ -1,29 +1,26 @@
 {
   "manifest_version": 3,
-  "name": "EchoRead v3.3 (BEAST MODE)",
-  "version": "3.3",
-  "description": "Reads articles with AI-powered simplification.",
+  "name": "EchoRead v4.0 (OCR Beast Mode)",
+  "version": "4.0",
+  "description": "Reads HTML articles and ALL PDFs (including scans) with OCR.",
   "permissions": [
     "activeTab",
     "scripting",
     "tabs",
-    "storage",
-    "contextMenus"
-  ],
-  "host_permissions": [
-    "https://generativelanguage.googleapis.com/"
+    "storage"
   ],
   "action": {
     "default_popup": "popup.html"
-  },
-  "background": {
-    "service_worker": "background.js"
   },
   "web_accessible_resources": [
     {
       "resources": [
         "OpenDyslexic-Regular.otf",
-        "readability.js" 
+        "readability.js",
+        "pdf.mjs",
+        "pdf.worker.mjs",
+        "tesseract.min.js",
+        "eng.traineddata"
       ],
       "matches": ["<all_urls>"]
     }
