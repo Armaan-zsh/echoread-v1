@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
-  "name": "EchoRead v3.0 (AI Edition)",
-  "version": "3.0",
+  "name": "EchoRead v3.3 (BEAST MODE)",
+  "version": "3.3",
   "description": "Reads articles with AI-powered simplification.",
   "permissions": [
     "activeTab",
@@ -21,7 +21,10 @@
   },
   "web_accessible_resources": [
     {
-      "resources": ["OpenDyslexic-Regular.otf"],
+      "resources": [
+        "OpenDyslexic-Regular.otf",
+        "readability.js" 
+      ],
       "matches": ["<all_urls>"]
     }
   ]
