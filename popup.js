@@ -10,17 +10,14 @@ const letterSpacingSlider = document.getElementById('letter-spacing-slider');
 
 // --- This is our "main" function. It runs as soon as the popup opens ---
 document.addEventListener('DOMContentLoaded', () => {
-  // Find out what page we're on
   chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
     const currentTab = tabs[0];
     const url = currentTab.url;
 
     if (url.endsWith('.pdf')) {
-      // If it's a PDF, show PDF controls
       pdfControls.classList.remove('hidden');
       htmlControls.classList.add('hidden');
     } else {
-      // If it's HTML, show HTML controls
       pdfControls.classList.add('hidden');
       htmlControls.classList.remove('hidden');
     }
@@ -28,67 +25,83 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 
-// --- PDF CONVERSION LOGIC ---
+// --- PDF CONVERSION LOGIC (NEW v2.1) ---
 convertPdfBtn.addEventListener('click', () => {
   convertPdfBtn.textContent = 'Converting...';
   convertPdfBtn.disabled = true;
 
   chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
     const currentTab = tabs[0];
-    
-    // Inject the pdf.js libraries
     chrome.scripting.executeScript({
       target: { tabId: currentTab.id },
       files: ['pdf.js']
     }, () => {
-      // After pdf.js is in, inject our conversion code
       chrome.scripting.executeScript({
         target: { tabId: currentTab.id },
-        function: parsePdf,
+        function: parsePdf, // This is our new, smarter function
         args: [
-          chrome.runtime.getURL('pdf.worker.mjs'), // Pass the worker URL
-          chrome.runtime.getURL('viewer.css')      // Pass the CSS URL
+          chrome.runtime.getURL('pdf.worker.mjs'),
+          chrome.runtime.getURL('viewer.css')
         ]
       });
     });
   });
 });
 
-// This is the function that will run ON THE PAGE to convert the PDF
+// This function now builds the page in real-time
 async function parsePdf(workerUrl, cssUrl) {
-  // 1. Tell pdf.js where to find its "worker" file
+  // 1. Setup PDF.js
   pdfjsLib.GlobalWorkerOptions.workerSrc = workerUrl;
-
-  // 2. Get the PDF document from the current URL
   const loadingTask = pdfjsLib.getDocument(window.location.href);
   const pdf = await loadingTask.promise;
 
-  // 3. Create a new, blank HTML document
-  let newHtml = `
+  // 2. Create the NEW HTML shell with a progress bar
+  document.open();
+  document.write(`
     <html>
     <head>
-      <title>${pdf.numPages} Page PDF</title>
+      <title>EchoRead - ${pdf.numPages} Page PDF</title>
       <link rel="stylesheet" href="${cssUrl}">
       <style>
-        body { background: #f5f5f5; padding: 20px; }
-        .page { background: white; margin: 20px auto; max-width: 800px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
-        .textLayer { line-height: 1.6; }
+        body { background: #f5f5f5; padding: 20px; font-family: sans-serif; }
+        .page { background: white; margin: 20px auto; max-width: 800px; box-shadow: 0 0 10px rgba(0,0,0,0.1); padding: 40px; }
+        .textLayer { line-height: 1.6; font-size: 18px; }
+        
+        /* Progress Bar Styles */
+        #progress-container {
+          position: fixed; top: 0; left: 0;
+          width: 100%; height: 20px;
+          background: #ccc; z-index: 9999;
+        }
+        #progress-bar {
+          width: 0%; height: 100%;
+          background: #007bff;
+          color: white; text-align: center;
+          font-weight: bold;
+          line-height: 20px;
+          transition: width 0.2s ease;
+        }
       </style>
     </head>
     <body>
-      <h1>PDF Conversion (Total ${pdf.numPages} pages)</h1>
-  `;
+      <div id="progress-container">
+        <div id="progress-bar">0%</div>
+      </div>
+      <h1 style="text-align: center;">Converting PDF...</h1>
+      <h2 style="text-align: center;">(Total ${pdf.numPages} pages)</h2>
+      <div id="pdf-content"></div>
+    </body>
+    </html>
+  `);
 
-  // 4. Loop through every page of the PDF
+  // 3. Get the elements we just created
+  const progressBar = document.getElementById('progress-bar');
+  const contentDiv = document.getElementById('pdf-content');
+
+  // 4. Loop through every page, one by one
   for (let i = 1; i <= pdf.numPages; i++) {
     const page = await pdf.getPage(i);
     const textContent = await page.getTextContent();
-    
-    // Add a "page" container
-    newHtml += `<div class="page" id="page-${i}">`;
-    
-    // Use pdf.js to render the text with correct positions
-    // This is complex, so let's do a simpler text extraction
     
     let pageText = "";
     for (const item of textContent.items) {
@@ -96,16 +109,24 @@ async function parsePdf(workerUrl, cssUrl) {
       if (item.hasEOL) { pageText += "<br>"; }
     }
     
-    // A simpler way: just dump the text, line by line
-    newHtml += `<div class="textLayer">${pageText}</div>`;
-    newHtml += `</div>`;
+    // Add this page's content to the screen
+    const pageHtml = `
+      <div class="page" id="page-${i}">
+        <h3>Page ${i}</h3>
+        <div class="textLayer">${pageText}</div>
+      </div>
+    `;
+    contentDiv.innerHTML += pageHtml;
+
+    // 5. UPDATE THE PROGRESS BAR
+    const percent = Math.round((i / pdf.numPages) * 100);
+    progressBar.style.width = percent + '%';
+    progressBar.textContent = percent + '%';
   }
 
-  // 5. Close the HTML and replace the page
-  newHtml += `</body></html>`;
-  
-  document.open();
-  document.write(newHtml);
+  // 6. Finish
+  progressBar.textContent = 'Complete!';
+  progressBar.style.background = '#28a745'; // Green
   document.close();
 }
 
@@ -125,22 +146,7 @@ cleanViewBtn.addEventListener('click', () => {
     });
   });
 });
-function parseArticleWithReadability(pageUrl) {
-  window.scrollTo(0, document.body.scrollHeight);
-  setTimeout(() => {
-    const documentClone = document.cloneNode(true);
-    const article = new Readability(documentClone, { charThreshold: 500, pageUrl: pageUrl }).parse();
-    if (article && article.content) {
-      const newHtml = `... (Same as v1.3) ...`; // Full code omitted for brevity
-      document.open();
-      document.write(newHtml);
-      document.close();
-    } else {
-      alert("Sorry, EchoRead couldn't find an article on this page.");
-    }
-  }, 1000);
-}
-// (This function needs to be complete, let me paste it)
+
 function parseArticleWithReadability(pageUrl) {
   window.scrollTo(0, document.body.scrollHeight);
   setTimeout(() => {
@@ -172,7 +178,6 @@ function parseArticleWithReadability(pageUrl) {
     }
   }, 1000);
 }
-
 
 // --- 2. Font Toggle Button ---
 fontToggleBtn.addEventListener('click', () => {
