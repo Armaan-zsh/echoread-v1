@@ -26,23 +26,19 @@ document.addEventListener('DOMContentLoaded', () => {
       setStatus("Cannot access this tab.");
       return;
     }
-
     const url = tabs[0].url;
 
-    // Asynchronous check for protected pages
     chrome.scripting.executeScript({
       target: { tabId: tabs[0].id },
-      function: () => true // Simple, safe check
+      function: () => true
     }, (results) => {
       if (chrome.runtime.lastError || !results || results.length === 0) {
         setStatus("EchoRead cannot run on this protected page.");
       } else if (url.endsWith('.pdf')) {
-        // It's a PDF! Show PDF controls.
         pdfControls.style.display = 'block';
         htmlControls.style.display = 'none';
         statusMessage.style.display = 'none';
       } else {
-        // It's a normal HTML page.
         htmlControls.style.display = 'block';
         pdfControls.style.display = 'none';
         statusMessage.style.display = 'none';
@@ -52,20 +48,17 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 
-// --- PDF CONVERSION LOGIC (NEW v4.0 "BEAST MODE" with OCR) ---
+// --- PDF CONVERSION LOGIC (NEW v4.1 "HYBRID ENGINE") ---
 convertPdfBtn.addEventListener('click', () => {
   convertPdfBtn.textContent = 'Loading Engine...';
   convertPdfBtn.disabled = true;
 
   chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
     const currentTab = tabs[0];
-    
-    // Inject BOTH libraries: pdf.js and tesseract.js
     chrome.scripting.executeScript({
       target: { tabId: currentTab.id },
       files: ['pdf.mjs', 'tesseract.min.js']
     }, () => {
-      // Now, inject our viewer-builder
       chrome.scripting.executeScript({
         target: { tabId: currentTab.id },
         function: initializeOcrPdfViewer,
@@ -78,6 +71,7 @@ convertPdfBtn.addEventListener('click', () => {
   });
 });
 
+// This function is now the "Hybrid Engine"
 async function initializeOcrPdfViewer(workerUrl, langDataUrl) {
   // 1. Setup PDF.js and load the document
   pdfjsLib.GlobalWorkerOptions.workerSrc = workerUrl;
@@ -92,31 +86,19 @@ async function initializeOcrPdfViewer(workerUrl, langDataUrl) {
       <style>
         body { background: #f5f5f5; padding-top: 80px; font-family: sans-serif; }
         #page-container {
-          background: white;
-          margin: 20px auto;
-          max-width: 800px;
-          min-height: 80vh;
-          box-shadow: 0 0 10px rgba(0,0,0,0.1);
-          padding: 40px;
+          background: white; margin: 20px auto; max-width: 800px;
+          min-height: 80vh; box-shadow: 0 0 10px rgba(0,0,0,0.1); padding: 40px;
         }
         .textLayer { line-height: 1.6; font-size: 18px; white-space: pre-wrap; }
         #ocr-status { font-size: 14px; font-style: italic; color: #555; text-align: center; }
         #nav-bar {
-          position: fixed; top: 0; left: 0;
-          width: 100%;
-          background: #333;
-          color: white;
-          display: flex;
-          justify-content: center;
-          align-items: center;
-          padding: 10px;
-          z-index: 9999;
-          box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+          position: fixed; top: 0; left: 0; width: 100%; background: #333;
+          color: white; display: flex; justify-content: center; align-items: center;
+          padding: 10px; z-index: 9999; box-shadow: 0 2px 5px rgba(0,0,0,0.3);
         }
         #nav-bar button { font-size: 16px; padding: 8px 16px; margin: 0 10px; cursor: pointer; }
         #nav-bar button:disabled { background: #777; cursor: not-allowed; }
         #page-num { font-size: 18px; font-weight: bold; }
-        /* This is the invisible canvas for rendering */
         #pdf-canvas { display: none; }
       </style>
     </head>
@@ -126,23 +108,22 @@ async function initializeOcrPdfViewer(workerUrl, langDataUrl) {
         <span id="page-num">Loading...</span>
         <button id="next-btn">Next</button>
       </div>
-      
       <div id="page-container">
-        <div id="ocr-status">Initializing OCR Engine...</div>
+        <div id="ocr-status">Initializing...</div>
         <div id="text-content-layer" class="textLayer"></div>
       </div>
-      
       <canvas id="pdf-canvas"></canvas>
 
       <script src="${chrome.runtime.getURL('pdf.mjs')}"></script>
       <script src="${chrome.runtime.getURL('tesseract.min.js')}"></script>
       
       <script>
-        // --- JIT + OCR SCRIPT (Embedded in new page) ---
+        // --- JIT + HYBRID OCR SCRIPT (Embedded in new page) ---
         let pdfDoc = null;
         let currentPageNum = 1;
         let totalPages = ${pdf.numPages};
-        let tesseractWorker = null;
+        let tesseractWorker = null; // Will be created "lazily"
+        let ocrInitialized = false;
 
         const pageNumDisplay = document.getElementById('page-num');
         const textContentLayer = document.getElementById('text-content-layer');
@@ -150,28 +131,21 @@ async function initializeOcrPdfViewer(workerUrl, langDataUrl) {
         const prevBtn = document.getElementById('prev-btn');
         const nextBtn = document.getElementById('next-btn');
         const canvas = document.getElementById('pdf-canvas');
-        const ctx = canvas.getContext('2d');
-
-        async function initialize() {
+        
+        async function initializePdf() {
           try {
-            // 1. Initialize Tesseract Worker
-            ocrStatus.textContent = "Loading OCR Engine (eng.traineddata)...";
-            tesseractWorker = await Tesseract.createWorker({
-              workerPath: chrome.runtime.getURL('tesseract.min.js'),
-              langPath: '', // We will provide the URL directly
-              corePath: 'https://cdn.jsdelivr.net/npm/tesseract.js-core@5.0.0/tesseract-core.wasm.js',
-            });
-            await tesseractWorker.loadLanguage(langDataUrl); // Use the provided lang data URL
-            await tesseractWorker.initialize('eng');
-            ocrStatus.textContent = "OCR Engine Ready.";
-
-            // 2. Initialize PDF.js
+            // 1. Initialize PDF.js (FAST)
+            ocrStatus.textContent = "Loading PDF document...";
             pdfjsLib.GlobalWorkerOptions.workerSrc = "${chrome.runtime.getURL('pdf.worker.mjs')}";
             const loadingTask = pdfjsLib.getDocument(window.location.href);
             pdfDoc = await loadingTask.promise;
             
-            // 3. Render the first page
-            renderPage(1);
+            // 2. Render the first page (FAST)
+            await renderPage(1);
+            
+            // 3. Pre-load the OCR engine in the background (SLOW)
+            // This won't block the user from reading!
+            initializeOcr();
 
           } catch (err) {
             console.error(err);
@@ -179,6 +153,26 @@ async function initializeOcrPdfViewer(workerUrl, langDataUrl) {
           }
         }
         
+        // This function now runs in the background
+        async function initializeOcr() {
+          try {
+            ocrStatus.textContent = "Loading OCR engine in background...";
+            tesseractWorker = await Tesseract.createWorker({
+              workerPath: chrome.runtime.getURL('tesseract.min.js'),
+              langPath: '',
+              corePath: 'https://cdn.jsdelivr.net/npm/tesseract.js-core@5.0.0/tesseract-core.wasm.js',
+            });
+            await tesseractWorker.loadLanguage("${langDataUrl}");
+            await tesseractWorker.initialize('eng');
+            ocrInitialized = true;
+            ocrStatus.textContent = "OCR engine ready if needed.";
+          } catch (err) {
+            console.error("OCR Engine failed to load:", err);
+            ocrStatus.textContent = "OCR engine failed to load. Scanned PDFs will not work.";
+          }
+        }
+        
+        // --- THIS IS THE NEW "SMART" FUNCTION ---
         async function renderPage(num) {
           try {
             // 1. Set loading state
@@ -187,25 +181,50 @@ async function initializeOcrPdfViewer(workerUrl, langDataUrl) {
             prevBtn.disabled = true;
             nextBtn.disabled = true;
 
-            // 2. Get PDF page and render it to invisible canvas
             const page = await pdfDoc.getPage(num);
-            const viewport = page.getViewport({ scale: 1.5 }); // 1.5x scale for better OCR
-            canvas.height = viewport.height;
-            canvas.width = viewport.width;
             
-            await page.render({ canvasContext: ctx, viewport: viewport }).promise;
+            // 2. --- TRY "EASY WAY" FIRST ---
+            const textContent = await page.getTextContent();
+            let pageText = "";
+            if (textContent && textContent.items.length > 0) {
+              for (const item of textContent.items) {
+                pageText += item.str + " ";
+                if (item.hasEOL) { pageText += "<br>"; }
+              }
+            }
 
-            // 3. Feed canvas image to Tesseract
-            ocrStatus.textContent = \`Running OCR on page \${num}... (This is the 'hard' part)\`;
-            const { data: { text } } = await tesseractWorker.recognize(canvas);
+            // 3. --- CHECK IF "EASY WAY" FAILED ---
+            // If the text is too short, it's probably a scanned image.
+            if (pageText.trim().length < 50) {
+              ocrStatus.textContent = \`Digital text not found. Falling back to OCR... (This will be slow)\`;
+              
+              // Check if OCR engine is ready
+              if (!ocrInitialized) {
+                ocrStatus.textContent = \`Waiting for OCR engine to load... (This happens once)\`;
+                await initializeOcr(); // Wait for it if it's not ready
+              }
+              
+              // 4. --- RUN "HARD WAY" (OCR) ---
+              ocrStatus.textContent = \`Running OCR on page \${num}... \`;
+              const ctx = canvas.getContext('2d');
+              const viewport = page.getViewport({ scale: 1.5 });
+              canvas.height = viewport.height;
+              canvas.width = viewport.width;
+              await page.render({ canvasContext: ctx, viewport: viewport }).promise;
+              
+              const { data: { text } } = await tesseractWorker.recognize(canvas);
+              pageText = text; // Overwrite with the OCR text
+              ocrStatus.textContent = \`Page \${num} loaded (from Scan).\`;
+            } else {
+              ocrStatus.textContent = \`Page \${num} loaded (Digital).\`;
+            }
             
-            // 4. Display the recognized text
-            textContentLayer.innerHTML = text; // Tesseract text has line breaks!
+            // 5. Display the final text (either digital or OCR)
+            textContentLayer.innerHTML = pageText;
             
-            // 5. Update UI
+            // 6. Update UI
             currentPageNum = num;
             pageNumDisplay.textContent = \`Page \${currentPageNum} / \${totalPages}\`;
-            ocrStatus.textContent = \`Page \${num} loaded via OCR.\`;
             prevBtn.disabled = (currentPageNum <= 1);
             nextBtn.disabled = (currentPageNum >= totalPages);
             
@@ -222,7 +241,7 @@ async function initializeOcrPdfViewer(workerUrl, langDataUrl) {
         nextBtn.addEventListener('click', () => { if (currentPageNum < totalPages) renderPage(currentPageNum + 1); });
         
         // Kick off the whole process
-        initialize();
+        initializePdf();
       </script>
     </body>
     </html>
