@@ -27,7 +27,19 @@
       background: rgba(255,255,255,0.9);
     }
     
-    #pdf-canvas {
+    #pages-scroll-container {
+        width: 100%;
+    }
+    
+    .pdf-page {
+        margin-bottom: 20px;
+        padding: 20px;
+        border: 1px solid #ddd;
+        background: white;
+        position: relative;
+    }
+    
+    .pdf-page canvas {
         max-width: 100%;
         height: auto;
         margin: 0 auto;
@@ -85,8 +97,7 @@
   
   <div id="page-container">
     <div id="ocr-status">Initializing...</div>
-    <canvas id="pdf-canvas"></canvas>
-    <div id="text-content-layer" class="textLayer"></div>
+    <div id="pages-scroll-container"></div>
   </div>
 
   <script src="pdf.js"></script>

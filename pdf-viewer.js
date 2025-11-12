@@ -1,4 +1,4 @@
-// --- PDF VIEWER v11.0 (Streaming + Controls) ---
+// --- PDF VIEWER v11.0 (Streaming + Controls + SCROLL) ---
 
 // --- 1. GET UI ELEMENTS ---
 let pdfDoc = null;
@@ -6,15 +6,15 @@ let currentPageNum = 1;
 let totalPages = 0;
 let tesseractWorker = null;
 let ocrInitialized = false;
+let loadedPages = new Set();
+let isLoading = false;
 
 const pageNumDisplay = document.getElementById('page-num');
-const textContentLayer = document.getElementById('text-content-layer');
 const ocrStatus = document.getElementById('ocr-status');
 const prevBtn = document.getElementById('prev-btn');
 const nextBtn = document.getElementById('next-btn');
 const pageInput = document.getElementById('page-input');
-const canvas = document.getElementById('pdf-canvas');
-const ctx = canvas.getContext('2d');
+const scrollContainer = document.getElementById('pages-scroll-container');
 
 // --- NEW: Get Accessibility Controls
 const fontToggleBtn = document.getElementById('font-toggle-btn');
@@ -35,19 +35,83 @@ async function loadPdfDirect(fileUrl) {
   return pdfjsLib.getDocument(uint8Array).promise;
 }
 
-
-async function performOcr(pageNum) {
+// NEW: Append page to scroll container
+async function appendPage(num) {
+  if (loadedPages.has(num) || isLoading || num > totalPages) return;
+  
+  isLoading = true;
+  loadedPages.add(num);
+  
   try {
-    ocrStatus.textContent = `Running OCR on page ${pageNum}...`;
-    const { data: { text } } = await tesseractWorker.recognize(canvas);
+    ocrStatus.textContent = `Loading page ${num}...`;
     
-    textContentLayer.innerHTML = text.replace(/\n/g, '<br>');
-    canvas.style.display = 'none'; 
-    textContentLayer.style.display = 'block';
-    ocrStatus.textContent = `Page ${pageNum} loaded (from Scan).`;
+    // Create page container
+    const pageDiv = document.createElement('div');
+    pageDiv.className = 'pdf-page';
+    pageDiv.id = `page-${num}`;
+    pageDiv.setAttribute('data-page', num);
+    
+    const page = await pdfDoc.getPage(num);
+    const textContent = await page.getTextContent();
+    let pageText = "";
+    
+    if (textContent && textContent.items.length > 0) {
+      for (const item of textContent.items) {
+        pageText += item.str + " ";
+        if (item.hasEOL) { pageText += "<br>"; }
+      }
+    }
+
+    if (pageText.trim().length < 50) { // SCANNED PDF
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      const viewport = page.getViewport({ scale: 1.5 });
+      canvas.height = viewport.height;
+      canvas.width = viewport.width;
+      
+      await page.render({ canvasContext: ctx, viewport: viewport }).promise;
+      pageDiv.appendChild(canvas);
+      
+      // OCR for scanned pages
+      if (!ocrInitialized) {
+        await initializeOcr();
+      }
+      
+      if (ocrInitialized) {
+        const { data: { text } } = await tesseractWorker.recognize(canvas);
+        const textDiv = document.createElement('div');
+        textDiv.className = 'textLayer';
+        textDiv.innerHTML = text.replace(/\n/g, '<br>');
+        pageDiv.appendChild(textDiv);
+      }
+    } else { // DIGITAL PDF
+      const textDiv = document.createElement('div');
+      textDiv.className = 'textLayer';
+      textDiv.innerHTML = pageText;
+      pageDiv.appendChild(textDiv);
+    }
+    
+    scrollContainer.appendChild(pageDiv);
+    ocrStatus.textContent = `Page ${num} loaded`;
+    
   } catch (err) {
-    console.error('OCR failed:', err);
-    ocrStatus.textContent = `OCR error on page ${pageNum}: ${err.message}. Showing image.`;
+    console.error(`Error loading page ${num}:`, err);
+    ocrStatus.textContent = `Error loading page ${num}`;
+  }
+  
+  isLoading = false;
+}
+
+// Keep original renderPage for button navigation
+async function renderPage(num) {
+  const pageElement = document.getElementById(`page-${num}`);
+  if (pageElement) {
+    pageElement.scrollIntoView({ behavior: 'smooth' });
+    currentPageNum = num;
+    pageNumDisplay.textContent = `Page ${currentPageNum} / ${totalPages}`;
+  } else {
+    await appendPage(num);
+    setTimeout(() => renderPage(num), 100);
   }
 }
 
@@ -65,64 +129,35 @@ async function initializeOcr() {
   }
 }
 
-async function renderPage(num) {
-  try {
-    textContentLayer.innerHTML = "";
-    textContentLayer.style.display = 'none';
-    canvas.style.display = 'none';
-    ocrStatus.textContent = `Loading page ${num}...`;
-    prevBtn.disabled = true;
-    nextBtn.disabled = true;
-
-    const page = await pdfDoc.getPage(num);
+// NEW: Setup scroll listener
+function setupScrollListener() {
+  window.addEventListener('scroll', () => {
+    const scrollTop = window.pageYOffset;
+    const windowHeight = window.innerHeight;
+    const documentHeight = document.documentElement.scrollHeight;
     
-    const textContent = await page.getTextContent();
-    let pageText = "";
-    if (textContent && textContent.items.length > 0) {
-      for (const item of textContent.items) {
-        pageText += item.str + " ";
-        if (item.hasEOL) { pageText += "<br>"; }
-      }
-    }
-
-    if (pageText.trim().length < 50) { // It's a SCANNED PDF
-      ocrStatus.textContent = `Digital text not found. Preparing scan...`;
-      
-      const viewport = page.getViewport({ scale: 1.5 });
-      canvas.height = viewport.height;
-      canvas.width = viewport.width;
-      await page.render({ canvasContext: ctx, viewport: viewport }).promise;
-      
-      canvas.style.display = 'block';
-      ocrStatus.textContent = `Image loaded. OCR in progress...`;
-      
-      if (!ocrInitialized) {
-        await initializeOcr();
-      }
-      
-      await performOcr(num);
-
-    } else { // It's a DIGITAL PDF
-      textContentLayer.innerHTML = pageText;
-      textContentLayer.style.display = 'block';
-      if (pdfDoc.transport && !pdfDoc.transport.done) {
-         ocrStatus.textContent = `Page ${num} loaded (Digital) - Background load in progress...`;
-      } else {
-         ocrStatus.textContent = `Page ${num} loaded (Digital).`;
+    // Load next page when 80% scrolled
+    if (scrollTop + windowHeight >= documentHeight * 0.8) {
+      const nextPage = Math.max(...Array.from(loadedPages)) + 1;
+      if (nextPage <= totalPages) {
+        appendPage(nextPage);
       }
     }
     
-    currentPageNum = num;
-    pageNumDisplay.textContent = `Page ${currentPageNum} / ${totalPages}`;
-    prevBtn.disabled = (currentPageNum <= 1);
-    nextBtn.disabled = (currentPageNum >= totalPages);
-    
-    window.scrollTo(0, 0);
-    
-  } catch (err) {
-    console.error(`Error rendering page ${num}:`, err);
-    ocrStatus.textContent = `Error on page ${num}: ${err.message}`;
-  }
+    // Update current page based on visible page
+    const pages = document.querySelectorAll('.pdf-page');
+    for (const page of pages) {
+      const rect = page.getBoundingClientRect();
+      if (rect.top <= windowHeight / 2 && rect.bottom >= windowHeight / 2) {
+        const pageNum = parseInt(page.getAttribute('data-page'));
+        if (pageNum !== currentPageNum) {
+          currentPageNum = pageNum;
+          pageNumDisplay.textContent = `Page ${currentPageNum} / ${totalPages}`;
+        }
+        break;
+      }
+    }
+  });
 }
 
 // --- NEW: Accessibility Control Logic ---
@@ -147,15 +182,11 @@ function setupAccessibilityControls() {
     });
 }
 
-
 // --- 3. MAIN STARTUP FUNCTION ---
 async function initializePdfViewer() {
   try {
     ocrStatus.textContent = "Preparing PDF...";
     
-    // Worker is loaded via HTML script tag
-    // pdfjsLib.GlobalWorkerOptions.workerSrc = chrome.runtime.getURL('pdf.worker.js');
-
     // Direct loading for all PDFs
     pdfDoc = await loadPdfDirect(pdfUrl);
 
@@ -164,8 +195,12 @@ async function initializePdfViewer() {
     
     // Setup controls *before* rendering
     setupAccessibilityControls();
+    setupScrollListener();
     
-    await renderPage(1);
+    // Load first page
+    await appendPage(1);
+    currentPageNum = 1;
+    pageNumDisplay.textContent = `Page 1 / ${totalPages}`;
 
   } catch (err) {
     console.error("PDF loading failed:", err);
