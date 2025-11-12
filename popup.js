@@ -1,4 +1,8 @@
-// --- Get ALL our new controls ---
+//
+//  popup.js
+//  This is the v5.2 "Redirect" logic. It is correct.
+//
+
 const pdfControls = document.getElementById('pdf-controls');
 const htmlControls = document.getElementById('html-controls');
 const statusMessage = document.getElementById('status-message');
@@ -9,7 +13,6 @@ const fontToggleBtn = document.getElementById('font-toggle-btn');
 const lineHeightSlider = document.getElementById('line-height-slider');
 const letterSpacingSlider = document.getElementById('letter-spacing-slider');
 
-// --- Helper function to set the status message ---
 function setStatus(message) {
   htmlControls.style.display = 'none';
   pdfControls.style.display = 'none';
@@ -17,10 +20,8 @@ function setStatus(message) {
   statusMessage.innerHTML = `<p>${message}</p>`;
 }
 
-// --- Main "main" function (v5.2 - NEW LOGIC) ---
 document.addEventListener('DOMContentLoaded', () => {
   setStatus("Checking page...");
-
   chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
     if (!tabs[0] || !tabs[0].url) {
       setStatus("Cannot access this tab.");
@@ -28,61 +29,50 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     const url = tabs[0].url;
 
-    // --- NEW LOGIC ---
-    
-    // 1. Check for PDF first. This is safe and doesn't need injection.
+    // 1. Check for PDF first.
     if (url.endsWith('.pdf')) {
-      // It's a PDF! (Either 'file://' or 'https://')
-      // Show the PDF button.
       pdfControls.style.display = 'block';
       htmlControls.style.display = 'none';
       statusMessage.style.display = 'none';
-      return; // Done.
+      return;
     }
 
     // 2. Check if we are *already* in our viewer.
     if (url.startsWith(chrome.runtime.getURL('pdf-viewer.html'))) {
       setStatus("You are already in EchoRead PDF Viewer!");
-      return; // Done.
+      return;
     }
     
-    // 3. If it's not a PDF, *then* try to inject a script to see if it's a
-    //    protected page (like 'chrome://' or 'aistudio.google.com').
+    // 3. If not a PDF, check for protected pages.
     chrome.scripting.executeScript({
       target: { tabId: tabs[0].id },
       function: () => true
     }, (results) => {
       if (chrome.runtime.lastError || !results || results.length === 0) {
-        // It's a protected page
         setStatus("EchoRead cannot run on this protected page.");
       } else {
-        // It's a normal HTML page
         htmlControls.style.display = 'block';
         pdfControls.style.display = 'none';
         statusMessage.style.display = 'none';
       }
     });
-    // --- END NEW LOGIC ---
   });
 });
 
-
-// --- PDF CONVERSION BUTTON (This code is correct) ---
+// PDF CONVERSION BUTTON
 convertPdfBtn.addEventListener('click', () => {
   chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
     const currentTab = tabs[0];
     const pdfUrl = currentTab.url;
     
-    // Redirect to our dedicated PDF viewer HTML page
+    // Redirect to our dedicated PDF viewer
     const viewerUrl = chrome.runtime.getURL(`pdf-viewer.html?url=${encodeURIComponent(pdfUrl)}`);
-    
-    // We must use chrome.tabs.update to change the URL
     chrome.tabs.update(currentTab.id, { url: viewerUrl });
   });
 });
 
 
-// --- ALL OUR OLD HTML-PAGE FUNCTIONS (These are correct) ---
+// --- ALL HTML-PAGE FUNCTIONS (These are correct) ---
 
 cleanViewBtn.addEventListener('click', () => {
   chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
