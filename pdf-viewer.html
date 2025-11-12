@@ -72,6 +72,27 @@
     .controls-group input[type="range"] {
         width: 100px;
     }
+    
+    /* --- E INK MODE STYLES --- */
+    .eink-mode {
+        background: #f4f4f4 !important;
+        color: #333333 !important;
+    }
+    
+    .eink-mode .pdf-page {
+        background: #f4f4f4 !important;
+        border-color: #d0d0d0 !important;
+    }
+    
+    .eink-mode .textLayer {
+        background: rgba(244, 244, 244, 0.9) !important;
+        color: #333333 !important;
+    }
+    
+    .eink-mode #nav-bar {
+        background: #e0e0e0 !important;
+        color: #333333 !important;
+    }
 
   </style>
 </head>
@@ -84,6 +105,7 @@
     
     <div class="controls-group">
         <button id="font-toggle-btn">Toggle Font</button>
+        <button id="eink-toggle-btn">E Ink Mode</button>
     </div>
     <div class="controls-group">
         <label for="line-height-slider">Line Height</label>

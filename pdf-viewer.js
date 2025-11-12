@@ -18,6 +18,7 @@ const scrollContainer = document.getElementById('pages-scroll-container');
 
 // --- NEW: Get Accessibility Controls
 const fontToggleBtn = document.getElementById('font-toggle-btn');
+const einkToggleBtn = document.getElementById('eink-toggle-btn');
 const lineHeightSlider = document.getElementById('line-height-slider');
 const letterSpacingSlider = document.getElementById('letter-spacing-slider');
 
@@ -170,6 +171,15 @@ function setupAccessibilityControls() {
             pageContainer.style.fontFamily = 'OpenDyslexic, sans-serif';
         } else {
             pageContainer.style.fontFamily = 'sans-serif';
+        }
+    });
+    
+    einkToggleBtn.addEventListener('click', () => {
+        document.body.classList.toggle('eink-mode');
+        if (document.body.classList.contains('eink-mode')) {
+            einkToggleBtn.textContent = 'Exit E Ink';
+        } else {
+            einkToggleBtn.textContent = 'E Ink Mode';
         }
     });
 
