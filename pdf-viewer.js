@@ -12,6 +12,7 @@ const textContentLayer = document.getElementById('text-content-layer');
 const ocrStatus = document.getElementById('ocr-status');
 const prevBtn = document.getElementById('prev-btn');
 const nextBtn = document.getElementById('next-btn');
+const pageInput = document.getElementById('page-input');
 const canvas = document.getElementById('pdf-canvas');
 const ctx = canvas.getContext('2d');
 
@@ -159,6 +160,7 @@ async function initializePdfViewer() {
     pdfDoc = await loadPdfDirect(pdfUrl);
 
     totalPages = pdfDoc.numPages;
+    pageInput.max = totalPages;
     
     // Setup controls *before* rendering
     setupAccessibilityControls();
@@ -174,6 +176,17 @@ async function initializePdfViewer() {
 // --- 4. EVENT LISTENERS & START ---
 prevBtn.addEventListener('click', () => { if (currentPageNum > 1) renderPage(currentPageNum - 1); });
 nextBtn.addEventListener('click', () => { if (currentPageNum < totalPages) renderPage(currentPageNum + 1); });
+
+// Page input functionality
+pageInput.addEventListener('keypress', (e) => {
+  if (e.key === 'Enter') {
+    const pageNum = parseInt(pageInput.value);
+    if (pageNum >= 1 && pageNum <= totalPages) {
+      renderPage(pageNum);
+    }
+    pageInput.value = '';
+  }
+});
 
 if (pdfUrl) {
   initializePdfViewer();
