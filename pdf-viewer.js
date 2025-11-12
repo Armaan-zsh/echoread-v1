@@ -1,7 +1,6 @@
-// --- PDF VIEWER v7.0 (FIXED FOR CHROME EXTENSIONS) ---
-// NO MORE MODULE IMPORTS - using legacy PDF.js build
+// --- PDF VIEWER v11.0 (Streaming + Controls) ---
 
-// UI Elements
+// --- 1. GET UI ELEMENTS ---
 let pdfDoc = null;
 let currentPageNum = 1;
 let totalPages = 0;
@@ -16,77 +15,53 @@ const nextBtn = document.getElementById('next-btn');
 const canvas = document.getElementById('pdf-canvas');
 const ctx = canvas.getContext('2d');
 
-// Get URL SAFELY (fixed double-encoding)
+// --- NEW: Get Accessibility Controls
+const fontToggleBtn = document.getElementById('font-toggle-btn');
+const lineHeightSlider = document.getElementById('line-height-slider');
+const letterSpacingSlider = document.getElementById('letter-spacing-slider');
+
 const urlParams = new URLSearchParams(window.location.search);
 let pdfUrl = urlParams.get('url');
 if (pdfUrl) pdfUrl = decodeURIComponent(pdfUrl);
 
-// Fix for chrome-extension:// URLs
-if (pdfUrl && pdfUrl.startsWith('chrome-extension://')) {
-  pdfUrl = pdfUrl.replace(/%3A/g, ':').replace(/%2F/g, '/');
-}
+// --- 2. DEFINE FUNCTIONS ---
 
-// NEW: Convert extension URLs to blobs
-async function convertExtensionUrlToBlob(url) {
-  if (!url.startsWith('chrome-extension://')) return url;
+// --- NEW: Streaming Loader for "file:///" (The "Slow" Bug Fix) ---
+async function loadLocalPdfWithStreaming(fileUrl) {
+  ocrStatus.textContent = "Fetching local file...";
   
-  try {
-    const response = await fetch(url);
-    const blob = await response.blob();
-    return URL.createObjectURL(blob);
-  } catch (err) {
-    console.error("Blob conversion failed:", err);
-    throw new Error(`Could not load PDF: ${err.message}`);
-  }
-}
-
-// Simple direct PDF loading
-async function loadPdfDirect(fileUrl) {
   const response = await fetch(fileUrl);
-  const arrayBuffer = await response.arrayBuffer();
-  const uint8Array = new Uint8Array(arrayBuffer);
-  return pdfjsLib.getDocument(uint8Array).promise;
-}
-
-// Initialize with proper URL handling
-async function initializePdfViewer() {
-  try {
-    ocrStatus.textContent = "Preparing PDF...";
-    
-    // Worker is loaded via HTML script tag
-    
-    // Handle all URL types with direct loading
-    let finalUrl = pdfUrl;
-    if (pdfUrl.startsWith('chrome-extension://')) {
-      finalUrl = await convertExtensionUrlToBlob(pdfUrl);
+  const total = parseInt(response.headers.get('content-length'), 10);
+  const reader = response.body.getReader();
+  
+  ocrStatus.textContent = "Sipping first chunk (64KB)...";
+  const { value: firstChunk } = await reader.read();
+  const initialData = new Uint8Array(firstChunk);
+  
+  const transport = new pdfjsLib.PDFDataRangeTransport(total, initialData);
+  
+  (async () => {
+    let loaded = initialData.length;
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) {
+        transport.onDataRangeLoad(loaded, total);
+        break;
+      }
+      const chunk = new Uint8Array(value);
+      transport.onDataRange(loaded, chunk);
+      loaded += chunk.length;
+      ocrStatus.textContent = `Loading PDF in background... (${Math.round(loaded/total*100)}%)`;
     }
-    
-    // Direct loading for all PDFs
-    pdfDoc = await loadPdfDirect(finalUrl);
-    totalPages = pdfDoc.numPages;
-    
-    await renderPage(1);
-  } catch (err) {
-    console.error("PDF loading failed:", err);
-    ocrStatus.innerHTML = `<h2>Error</h2><p>${err.message}</p>`;
-  }
+  })();
+  
+  // This promise will resolve instantly
+  return pdfjsLib.getDocument({
+    range: transport,
+    url: null 
+  }).promise;
 }
 
-// Tesseract is loaded via HTML script tag
-
-async function initializeOcr() {
-  try {
-    ocrStatus.textContent = "Loading OCR engine (one-time setup)...";
-    
-    tesseractWorker = await window.Tesseract.createWorker();
-    await tesseractWorker.loadLanguage('eng');
-    await tesseractWorker.initialize('eng');
-    ocrInitialized = true;
-  } catch (err) {
-    console.error("OCR failed:", err);
-    ocrStatus.textContent = "OCR unavailable. Showing images only.";
-  }
-}
 
 async function performOcr(pageNum) {
   try {
@@ -100,6 +75,20 @@ async function performOcr(pageNum) {
   } catch (err) {
     console.error('OCR failed:', err);
     ocrStatus.textContent = `OCR error on page ${pageNum}: ${err.message}. Showing image.`;
+  }
+}
+
+async function initializeOcr() {
+  try {
+    ocrStatus.textContent = "Loading OCR engine (one-time setup)...";
+    
+    tesseractWorker = await window.Tesseract.createWorker();
+    await tesseractWorker.loadLanguage('eng');
+    await tesseractWorker.initialize('eng');
+    ocrInitialized = true;
+  } catch (err) {
+    console.error("OCR failed:", err);
+    ocrStatus.textContent = "OCR unavailable. Showing images only.";
   }
 }
 
@@ -123,7 +112,6 @@ async function renderPage(num) {
       }
     }
 
-    // Check if it's a scanned PDF
     if (pageText.trim().length < 50) { // It's a SCANNED PDF
       ocrStatus.textContent = `Digital text not found. Preparing scan...`;
       
@@ -144,7 +132,11 @@ async function renderPage(num) {
     } else { // It's a DIGITAL PDF
       textContentLayer.innerHTML = pageText;
       textContentLayer.style.display = 'block';
-      ocrStatus.textContent = `Page ${num} loaded (Digital).`;
+      if (pdfDoc.transport && !pdfDoc.transport.done) {
+         ocrStatus.textContent = `Page ${num} loaded (Digital) - Background load in progress...`;
+      } else {
+         ocrStatus.textContent = `Page ${num} loaded (Digital).`;
+      }
     }
     
     currentPageNum = num;
@@ -160,11 +152,64 @@ async function renderPage(num) {
   }
 }
 
-// Event listeners
+// --- NEW: Accessibility Control Logic ---
+function setupAccessibilityControls() {
+    const pageContainer = document.getElementById('page-container');
+
+    fontToggleBtn.addEventListener('click', () => {
+        pageContainer.classList.toggle('opendyslexic-font');
+        if (pageContainer.classList.contains('opendyslexic-font')) {
+            pageContainer.style.fontFamily = 'OpenDyslexic, sans-serif';
+        } else {
+            pageContainer.style.fontFamily = 'sans-serif';
+        }
+    });
+
+    lineHeightSlider.addEventListener('input', (e) => {
+        pageContainer.style.lineHeight = e.target.value;
+    });
+
+    letterSpacingSlider.addEventListener('input', (e) => {
+        pageContainer.style.letterSpacing = `${e.target.value}px`;
+    });
+}
+
+
+// --- 3. MAIN STARTUP FUNCTION ---
+async function initializePdfViewer() {
+  try {
+    ocrStatus.textContent = "Preparing PDF...";
+    
+    // Worker is loaded via HTML script tag
+    // pdfjsLib.GlobalWorkerOptions.workerSrc = chrome.runtime.getURL('pdf.worker.js');
+
+    // --- NEW: Streaming Logic ---
+    if (pdfUrl.startsWith('file://')) {
+      ocrStatus.textContent = "Optimizing local PDF for fast loading...";
+      pdfDoc = await loadLocalPdfWithStreaming(pdfUrl);
+    } else {
+      ocrStatus.textContent = "Loading web PDF...";
+      pdfDoc = await pdfjsLib.getDocument(pdfUrl).promise;
+    }
+    // --- END NEW LOGIC ---
+
+    totalPages = pdfDoc.numPages;
+    
+    // Setup controls *before* rendering
+    setupAccessibilityControls();
+    
+    await renderPage(1);
+
+  } catch (err) {
+    console.error("PDF loading failed:", err);
+    ocrStatus.innerHTML = `<h2>Error</h2><p>${err.message}</p>`;
+  }
+}
+
+// --- 4. EVENT LISTENERS & START ---
 prevBtn.addEventListener('click', () => { if (currentPageNum > 1) renderPage(currentPageNum - 1); });
 nextBtn.addEventListener('click', () => { if (currentPageNum < totalPages) renderPage(currentPageNum + 1); });
 
-// Start app
 if (pdfUrl) {
   initializePdfViewer();
 } else {

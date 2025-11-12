@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
-  "name": "EchoRead",
-  "version": "1.0",
+  "name": "EchoRead v11.0 (The Beast)",
+  "version": "11.0",
   "description": "Reads HTML articles and ALL PDFs (including scans) with OCR.",
   "permissions": [
     "activeTab",
@@ -27,8 +27,7 @@
         "pdf.worker.js",
         "tesseract-core.wasm.js"
       ],
-      "matches": ["<all_urls>"],
-      "use_dynamic_url": true
+      "matches": ["<all_urls>"]
     }
   ]
 }
