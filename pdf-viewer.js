@@ -19,6 +19,7 @@ const scrollContainer = document.getElementById('pages-scroll-container');
 // --- NEW: Get Accessibility Controls
 const fontToggleBtn = document.getElementById('font-toggle-btn');
 const einkToggleBtn = document.getElementById('eink-toggle-btn');
+const amoledToggleBtn = document.getElementById('amoled-toggle-btn');
 const lineHeightSlider = document.getElementById('line-height-slider');
 const letterSpacingSlider = document.getElementById('letter-spacing-slider');
 const contrastSlider = document.getElementById('contrast-slider');
@@ -188,6 +189,10 @@ function setupAccessibilityControls() {
     });
     
     einkToggleBtn.addEventListener('click', () => {
+        // Turn off AMOLED mode first
+        document.body.classList.remove('amoled-mode');
+        amoledToggleBtn.textContent = 'AMOLED Mode';
+        
         document.body.classList.toggle('eink-mode');
         if (document.body.classList.contains('eink-mode')) {
             einkToggleBtn.textContent = 'Exit E Ink';
@@ -201,8 +206,26 @@ function setupAccessibilityControls() {
         }
     });
     
+    amoledToggleBtn.addEventListener('click', () => {
+        // Turn off E Ink mode first
+        document.body.classList.remove('eink-mode');
+        einkToggleBtn.textContent = 'E Ink Mode';
+        
+        document.body.classList.toggle('amoled-mode');
+        if (document.body.classList.contains('amoled-mode')) {
+            amoledToggleBtn.textContent = 'Exit AMOLED';
+            // Apply default contrast level
+            document.body.className = document.body.className.replace(/contrast-\d/g, '');
+            document.body.classList.add(`contrast-${contrastSlider.value}`);
+        } else {
+            amoledToggleBtn.textContent = 'AMOLED Mode';
+            // Remove contrast classes
+            document.body.className = document.body.className.replace(/contrast-\d/g, '');
+        }
+    });
+    
     contrastSlider.addEventListener('input', (e) => {
-        if (document.body.classList.contains('eink-mode')) {
+        if (document.body.classList.contains('eink-mode') || document.body.classList.contains('amoled-mode')) {
             // Remove old contrast class and add new one
             document.body.className = document.body.className.replace(/contrast-\d/g, '');
             document.body.classList.add(`contrast-${e.target.value}`);

@@ -123,6 +123,42 @@
     body.eink-mode.contrast-5 .pdf-page { background: #D8D3C3 !important; }
     body.eink-mode.contrast-5 .textLayer { background: rgba(216, 211, 195, 0.95) !important; color: #000000 !important; }
     body.eink-mode.contrast-5 #page-container { background: #D8D3C3 !important; }
+    
+    /* AMOLED Dark Mode Styles */
+    body.amoled-mode.contrast-1 { background: #000000 !important; color: #cccccc !important; }
+    body.amoled-mode.contrast-1 .pdf-page { background: #000000 !important; }
+    body.amoled-mode.contrast-1 .textLayer { background: rgba(0, 0, 0, 0.95) !important; color: #cccccc !important; }
+    body.amoled-mode.contrast-1 #page-container { background: #000000 !important; }
+    body.amoled-mode.contrast-1 canvas { filter: invert(1) !important; }
+    
+    body.amoled-mode.contrast-2 { background: #000000 !important; color: #dddddd !important; }
+    body.amoled-mode.contrast-2 .pdf-page { background: #000000 !important; }
+    body.amoled-mode.contrast-2 .textLayer { background: rgba(0, 0, 0, 0.95) !important; color: #dddddd !important; }
+    body.amoled-mode.contrast-2 #page-container { background: #000000 !important; }
+    body.amoled-mode.contrast-2 canvas { filter: invert(1) !important; }
+    
+    body.amoled-mode.contrast-3 { background: #000000 !important; color: #eeeeee !important; }
+    body.amoled-mode.contrast-3 .pdf-page { background: #000000 !important; }
+    body.amoled-mode.contrast-3 .textLayer { background: rgba(0, 0, 0, 0.95) !important; color: #eeeeee !important; }
+    body.amoled-mode.contrast-3 #page-container { background: #000000 !important; }
+    body.amoled-mode.contrast-3 canvas { filter: invert(1) !important; }
+    
+    body.amoled-mode.contrast-4 { background: #000000 !important; color: #f5f5f5 !important; }
+    body.amoled-mode.contrast-4 .pdf-page { background: #000000 !important; }
+    body.amoled-mode.contrast-4 .textLayer { background: rgba(0, 0, 0, 0.95) !important; color: #f5f5f5 !important; }
+    body.amoled-mode.contrast-4 #page-container { background: #000000 !important; }
+    body.amoled-mode.contrast-4 canvas { filter: invert(1) !important; }
+    
+    body.amoled-mode.contrast-5 { background: #000000 !important; color: #ffffff !important; }
+    body.amoled-mode.contrast-5 .pdf-page { background: #000000 !important; }
+    body.amoled-mode.contrast-5 .textLayer { background: rgba(0, 0, 0, 0.95) !important; color: #ffffff !important; }
+    body.amoled-mode.contrast-5 #page-container { background: #000000 !important; }
+    body.amoled-mode.contrast-5 canvas { filter: invert(1) !important; }
+    
+    body.amoled-mode #nav-bar {
+        background: #111111 !important;
+        color: #ffffff !important;
+    }
 
   </style>
 </head>
@@ -136,6 +172,7 @@
     <div class="controls-group">
         <button id="font-toggle-btn">Toggle Font</button>
         <button id="eink-toggle-btn">E Ink Mode</button>
+        <button id="amoled-toggle-btn">AMOLED Mode</button>
     </div>
     <div class="controls-group">
         <label for="line-height-slider">Line Height</label>
