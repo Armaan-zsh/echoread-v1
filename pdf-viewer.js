@@ -1,12 +1,10 @@
-// --- JIT + HYBRID OCR SCRIPT (v6.0 - ES Module Fix) ---
+// --- JIT + HYBRID OCR SCRIPT (v7.0 - The "Rename" Fix) ---
 
 // --- STEP 1: IMPORT LIBRARIES ---
-// This 'import' statement is guaranteed to run BEFORE any other code.
-// The "use_dynamic_url" in manifest.json fixes the MIME type error.
-import * as pdfjsLib from './pdf.mjs'; 
+// We now import the .js file. This bypasses the MIME type bug.
+import * as pdfjsLib from './pdf.js'; 
 
 // Tesseract is not an ES module, so we must load it manually.
-// We'll create a "promise" for it.
 const tesseractPromise = new Promise((resolve, reject) => {
   const script = document.createElement('script');
   script.src = chrome.runtime.getURL('tesseract.min.js');
@@ -57,15 +55,14 @@ async function initializePdfViewer() {
   try {
     ocrStatus.textContent = "Loading PDF document...";
     
-    // 'pdfjsLib' is NOW DEFINED because of the 'import' at the top.
-    pdfjsLib.GlobalWorkerOptions.workerSrc = chrome.runtime.getURL('pdf.worker.mjs');
+    // We point to the new .js worker file
+    pdfjsLib.GlobalWorkerOptions.workerSrc = chrome.runtime.getURL('pdf.worker.js');
+    
     const loadingTask = pdfjsLib.getDocument(pdfUrl);
     pdfDoc = await loadingTask.promise;
     totalPages = pdfDoc.numPages;
 
-    // This is the "lazy load" logic from v6.0
-    // We do NOT load OCR until it's needed.
-    
+    // "Lazy load" OCR
     await renderPage(1); // Render first page
     
   } catch (err) {
@@ -79,13 +76,16 @@ async function initializeOcr() {
   try {
     ocrStatus.textContent = "First-time setup: Loading 9MB OCR engine...";
     
-    // We wait for the Tesseract script to finish loading
     const Tesseract = await tesseractPromise;
 
     tesseractWorker = await Tesseract.createWorker({
       workerPath: chrome.runtime.getURL('tesseract.min.js'),
       langPath: '',
-      corePath: 'httpsS://cdn.jsdelivr.net/npm/tesseract.js-core@5.0.0/tesseract-core.wasm.js',
+      
+      // --- THIS IS THE TYPO FIX ---
+      corePath: 'https://cdn.jsdelivr.net/npm/tesseract.js-core@5.0.0/tesseract-core.wasm.js',
+      // --- END FIX ---
+
     });
     await tesseractWorker.loadLanguage(chrome.runtime.getURL('eng.traineddata'));
     await tesseractWorker.initialize('eng');
@@ -134,9 +134,8 @@ async function renderPage(num) {
       canvas.style.display = 'block';
       ocrStatus.textContent = `Image loaded. OCR in progress...`;
       
-      // "ON-DEMAND" LOAD:
       if (!ocrInitialized) {
-        await initializeOcr(); // This is the "slow" part, happens ONCE
+        await initializeOcr();
       }
       
       await performOcr(num);
