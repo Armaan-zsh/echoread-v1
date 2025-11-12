@@ -1,6 +1,6 @@
 //
 //  loader.js
-//  This is the "Bootstrap Loader" (v5.6 - The "Classic" Fix)
+//  This is the "Bootstrap Loader" (v5.7 - The "Race Condition" Fix)
 //
 
 (async function() {
@@ -20,16 +20,10 @@
   try {
     status.textContent = 'Loading PDF Library...';
     
-    // --- THIS IS THE FIX ---
-    // We are loading 'pdf.js' (the classic file), NOT 'pdf.mjs' (the module)
     await loadScript(chrome.runtime.getURL('pdf.js'));
-    // --- END FIX ---
-    
     console.log('EchoRead: pdf.js loaded. pdfjsLib is NOW defined.');
     
-    // Set the workerSrc immediately
     if (window.pdfjsLib) {
-        // We use 'pdf.worker.js' (the classic worker)
         pdfjsLib.GlobalWorkerOptions.workerSrc = chrome.runtime.getURL('pdf.worker.js');
     } else {
         throw new Error('pdfjsLib was not defined on window. Check if pdf.js loaded.');
@@ -43,7 +37,17 @@
     await loadScript(chrome.runtime.getURL('pdf-viewer.js'));
     console.log('EchoRead: pdf-viewer.js loaded. The viewer will now start.');
 
-    status.style.display = 'none'; // Hide the loading message
+    // --- THIS IS THE FIX ---
+    // Now that all scripts are loaded, we can safely
+    // call the function inside 'pdf-viewer.js'.
+    if (window.startEchoReadViewer) {
+      await window.startEchoReadViewer();
+    } else {
+      throw new Error('pdf-viewer.js did not define startEchoReadViewer');
+    }
+    // --- END FIX ---
+    
+    status.style.display = 'none';
 
   } catch (err) {
     console.error('EchoRead Loader Failed:', err);
