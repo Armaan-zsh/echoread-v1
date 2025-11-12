@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
-  "name": "EchoRead v9.0 (Self-Contained)",
-  "version": "9.0",
+  "name": "EchoRead",
+  "version": "1.0",
   "description": "Reads HTML articles and ALL PDFs (including scans) with OCR.",
   "permissions": [
     "activeTab",
@@ -9,6 +9,7 @@
     "tabs",
     "storage"
   ],
+  "host_permissions": ["<all_urls>"],
   "action": {
     "default_popup": "popup.html"
   },
@@ -22,13 +23,12 @@
         "eng.traineddata",
         "pdf-viewer.html",
         "pdf-viewer.js",
-        
         "pdf.js",
         "pdf.worker.js",
-        
         "tesseract-core.wasm.js"
       ],
-      "matches": ["<all_urls>"]
+      "matches": ["<all_urls>"],
+      "use_dynamic_url": true
     }
   ]
 }
