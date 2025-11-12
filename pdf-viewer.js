@@ -79,12 +79,17 @@ async function appendPage(num) {
         await initializeOcr();
       }
       
-      if (ocrInitialized) {
-        const { data: { text } } = await tesseractWorker.recognize(canvas);
-        const textDiv = document.createElement('div');
-        textDiv.className = 'textLayer';
-        textDiv.innerHTML = text.replace(/\n/g, '<br>');
-        pageDiv.appendChild(textDiv);
+      if (ocrInitialized && tesseractWorker) {
+        try {
+          const { data: { text } } = await tesseractWorker.recognize(canvas);
+          const textDiv = document.createElement('div');
+          textDiv.className = 'textLayer';
+          textDiv.innerHTML = text.replace(/\n/g, '<br>');
+          pageDiv.appendChild(textDiv);
+        } catch (ocrErr) {
+          console.error('OCR recognition failed:', ocrErr);
+          // Just show the canvas without OCR text
+        }
       }
     } else { // DIGITAL PDF
       const textDiv = document.createElement('div');
@@ -121,12 +126,19 @@ async function initializeOcr() {
   try {
     ocrStatus.textContent = "Loading OCR engine (one-time setup)...";
     
+    if (!window.Tesseract) {
+      throw new Error('Tesseract not loaded');
+    }
+    
     tesseractWorker = await window.Tesseract.createWorker();
     await tesseractWorker.loadLanguage('eng');
     await tesseractWorker.initialize('eng');
     ocrInitialized = true;
+    ocrStatus.textContent = "OCR engine ready.";
   } catch (err) {
     console.error("OCR failed:", err);
+    ocrInitialized = false;
+    tesseractWorker = null;
     ocrStatus.textContent = "OCR unavailable. Showing images only.";
   }
 }
