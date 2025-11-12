@@ -21,6 +21,7 @@ const fontToggleBtn = document.getElementById('font-toggle-btn');
 const einkToggleBtn = document.getElementById('eink-toggle-btn');
 const lineHeightSlider = document.getElementById('line-height-slider');
 const letterSpacingSlider = document.getElementById('letter-spacing-slider');
+const contrastSlider = document.getElementById('contrast-slider');
 
 const urlParams = new URLSearchParams(window.location.search);
 let pdfUrl = urlParams.get('url');
@@ -178,8 +179,21 @@ function setupAccessibilityControls() {
         document.body.classList.toggle('eink-mode');
         if (document.body.classList.contains('eink-mode')) {
             einkToggleBtn.textContent = 'Exit E Ink';
+            // Apply default contrast level
+            document.body.className = document.body.className.replace(/contrast-\d/g, '');
+            document.body.classList.add(`contrast-${contrastSlider.value}`);
         } else {
             einkToggleBtn.textContent = 'E Ink Mode';
+            // Remove contrast classes
+            document.body.className = document.body.className.replace(/contrast-\d/g, '');
+        }
+    });
+    
+    contrastSlider.addEventListener('input', (e) => {
+        if (document.body.classList.contains('eink-mode')) {
+            // Remove old contrast class and add new one
+            document.body.className = document.body.className.replace(/contrast-\d/g, '');
+            document.body.classList.add(`contrast-${e.target.value}`);
         }
     });
 

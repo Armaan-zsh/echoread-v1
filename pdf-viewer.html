@@ -97,6 +97,27 @@
         background: #e0e0e0 !important;
         color: #333333 !important;
     }
+    
+    /* E Ink Contrast Levels */
+    body.eink-mode.contrast-1 { background: #f8f8f8 !important; color: #555555 !important; }
+    body.eink-mode.contrast-1 .pdf-page { background: #f8f8f8 !important; }
+    body.eink-mode.contrast-1 .textLayer { background: rgba(248, 248, 248, 0.9) !important; color: #555555 !important; }
+    
+    body.eink-mode.contrast-2 { background: #f6f6f6 !important; color: #444444 !important; }
+    body.eink-mode.contrast-2 .pdf-page { background: #f6f6f6 !important; }
+    body.eink-mode.contrast-2 .textLayer { background: rgba(246, 246, 246, 0.9) !important; color: #444444 !important; }
+    
+    body.eink-mode.contrast-3 { background: #f4f4f4 !important; color: #333333 !important; }
+    body.eink-mode.contrast-3 .pdf-page { background: #f4f4f4 !important; }
+    body.eink-mode.contrast-3 .textLayer { background: rgba(244, 244, 244, 0.9) !important; color: #333333 !important; }
+    
+    body.eink-mode.contrast-4 { background: #f0f0f0 !important; color: #222222 !important; }
+    body.eink-mode.contrast-4 .pdf-page { background: #f0f0f0 !important; }
+    body.eink-mode.contrast-4 .textLayer { background: rgba(240, 240, 240, 0.9) !important; color: #222222 !important; }
+    
+    body.eink-mode.contrast-5 { background: #eeeeee !important; color: #111111 !important; }
+    body.eink-mode.contrast-5 .pdf-page { background: #eeeeee !important; }
+    body.eink-mode.contrast-5 .textLayer { background: rgba(238, 238, 238, 0.9) !important; color: #111111 !important; }
 
   </style>
 </head>
@@ -118,6 +139,10 @@
     <div class="controls-group">
         <label for="letter-spacing-slider">Letter Spacing</label>
         <input type="range" id="letter-spacing-slider" min="0" max="5" step="0.1" value="0">
+    </div>
+    <div class="controls-group">
+        <label for="contrast-slider">E Ink Contrast</label>
+        <input type="range" id="contrast-slider" min="1" max="5" step="1" value="3">
     </div>
     </div>
   
