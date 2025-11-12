@@ -1,14 +1,12 @@
-// --- JIT + HYBRID OCR SCRIPT (v7.0 - The "Rename" Fix) ---
+// --- JIT + HYBRID OCR SCRIPT (v9.0 - The "Local Core" Fix) ---
 
 // --- STEP 1: IMPORT LIBRARIES ---
-// We now import the .js file. This bypasses the MIME type bug.
 import * as pdfjsLib from './pdf.js'; 
 
-// Tesseract is not an ES module, so we must load it manually.
 const tesseractPromise = new Promise((resolve, reject) => {
   const script = document.createElement('script');
   script.src = chrome.runtime.getURL('tesseract.min.js');
-  script.onload = () => resolve(window.Tesseract); // It attaches to 'window'
+  script.onload = () => resolve(window.Tesseract);
   script.onerror = reject;
   document.head.appendChild(script);
 });
@@ -55,7 +53,6 @@ async function initializePdfViewer() {
   try {
     ocrStatus.textContent = "Loading PDF document...";
     
-    // We point to the new .js worker file
     pdfjsLib.GlobalWorkerOptions.workerSrc = chrome.runtime.getURL('pdf.worker.js');
     
     const loadingTask = pdfjsLib.getDocument(pdfUrl);
@@ -82,8 +79,9 @@ async function initializeOcr() {
       workerPath: chrome.runtime.getURL('tesseract.min.js'),
       langPath: '',
       
-      // --- THIS IS THE TYPO FIX ---
-      corePath: 'https://cdn.jsdelivr.net/npm/tesseract.js-core@5.0.0/tesseract-core.wasm.js',
+      // --- THIS IS THE FIX ---
+      // We are now loading the "brain" from our local extension folder.
+      corePath: chrome.runtime.getURL('tesseract-core.wasm.js'),
       // --- END FIX ---
 
     });
