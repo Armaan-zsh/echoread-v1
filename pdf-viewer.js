@@ -26,40 +26,12 @@ if (pdfUrl) pdfUrl = decodeURIComponent(pdfUrl);
 
 // --- 2. DEFINE FUNCTIONS ---
 
-// --- NEW: Streaming Loader for "file:///" (The "Slow" Bug Fix) ---
-async function loadLocalPdfWithStreaming(fileUrl) {
-  ocrStatus.textContent = "Fetching local file...";
-  
+// Simple direct PDF loading
+async function loadPdfDirect(fileUrl) {
   const response = await fetch(fileUrl);
-  const total = parseInt(response.headers.get('content-length'), 10);
-  const reader = response.body.getReader();
-  
-  ocrStatus.textContent = "Sipping first chunk (64KB)...";
-  const { value: firstChunk } = await reader.read();
-  const initialData = new Uint8Array(firstChunk);
-  
-  const transport = new pdfjsLib.PDFDataRangeTransport(total, initialData);
-  
-  (async () => {
-    let loaded = initialData.length;
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) {
-        transport.onDataRangeLoad(loaded, total);
-        break;
-      }
-      const chunk = new Uint8Array(value);
-      transport.onDataRange(loaded, chunk);
-      loaded += chunk.length;
-      ocrStatus.textContent = `Loading PDF in background... (${Math.round(loaded/total*100)}%)`;
-    }
-  })();
-  
-  // This promise will resolve instantly
-  return pdfjsLib.getDocument({
-    range: transport,
-    url: null 
-  }).promise;
+  const arrayBuffer = await response.arrayBuffer();
+  const uint8Array = new Uint8Array(arrayBuffer);
+  return pdfjsLib.getDocument(uint8Array).promise;
 }
 
 
@@ -183,15 +155,8 @@ async function initializePdfViewer() {
     // Worker is loaded via HTML script tag
     // pdfjsLib.GlobalWorkerOptions.workerSrc = chrome.runtime.getURL('pdf.worker.js');
 
-    // --- NEW: Streaming Logic ---
-    if (pdfUrl.startsWith('file://')) {
-      ocrStatus.textContent = "Optimizing local PDF for fast loading...";
-      pdfDoc = await loadLocalPdfWithStreaming(pdfUrl);
-    } else {
-      ocrStatus.textContent = "Loading web PDF...";
-      pdfDoc = await pdfjsLib.getDocument(pdfUrl).promise;
-    }
-    // --- END NEW LOGIC ---
+    // Direct loading for all PDFs
+    pdfDoc = await loadPdfDirect(pdfUrl);
 
     totalPages = pdfDoc.numPages;
     
