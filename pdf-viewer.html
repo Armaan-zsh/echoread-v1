@@ -81,11 +81,11 @@
     
     /* --- Settings Panel --- */
     #settings-panel {
-      position: fixed; top: 60px; right: 20px; width: 300px;
-      background: rgba(0,0,0,0.9); color: white; border-radius: 12px;
-      padding: 20px; z-index: 10000; backdrop-filter: blur(20px);
-      border: 1px solid rgba(255,255,255,0.1);
-      box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+      position: fixed; top: 60px; right: 20px; width: 280px;
+      background: #1a1a1a; color: #e0e0e0; border-radius: 8px;
+      padding: 16px; z-index: 10000; backdrop-filter: blur(20px);
+      border: 1px solid #333;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.6);
       transition: all 0.3s ease;
     }
     
@@ -94,44 +94,43 @@
     }
     
     .settings-content h3 {
-      margin: 0 0 15px 0; font-size: 18px; font-weight: 500;
-      color: rgba(255,255,255,0.9);
+      margin: 0 0 12px 0; font-size: 14px; font-weight: 500;
+      color: #f0f0f0;
     }
     
     .setting-row {
-      display: flex; align-items: center; margin-bottom: 12px;
-      flex-wrap: wrap; gap: 8px;
+      display: flex; align-items: center; margin-bottom: 8px;
+      flex-wrap: wrap; gap: 6px;
     }
     
     .setting-row label {
-      font-size: 14px; color: rgba(255,255,255,0.8);
-      min-width: 80px;
+      font-size: 11px; color: #888;
+      min-width: 70px;
     }
     
     .setting-btn {
-      background: rgba(255,255,255,0.1); border: none; color: white;
-      padding: 8px 12px; border-radius: 6px; cursor: pointer;
-      font-size: 13px; transition: all 0.2s ease; font-weight: 500;
-      display: flex; align-items: center; gap: 6px;
+      background: #2d2d2d; border: 1px solid #444; color: #ccc;
+      padding: 6px 10px; border-radius: 4px; cursor: pointer;
+      font-size: 11px; transition: all 0.15s ease; font-weight: 400;
+      display: flex; align-items: center; gap: 4px; height: 28px;
     }
     .setting-btn:hover { 
-      background: rgba(255,255,255,0.2); 
-      transform: translateY(-1px);
+      background: #333; color: white;
     }
     
     .primary-setting-btn {
-      background: #4CAF50; color: white;
+      background: #2d2d2d; color: #4CAF50; border: 1px solid #4CAF50;
     }
     .primary-setting-btn:hover {
-      background: #45a049;
+      background: #4CAF50; color: white;
     }
     
     .zoom-btn {
-      background: rgba(255,255,255,0.1); border: none; color: white;
+      background: #2d2d2d; border: 1px solid #444; color: #ccc;
       padding: 4px 8px; border-radius: 4px; cursor: pointer;
-      font-size: 16px; font-weight: bold;
+      font-size: 14px; font-weight: bold; width: 32px; height: 28px;
     }
-    .zoom-btn:hover { background: rgba(255,255,255,0.2); }
+    .zoom-btn:hover { background: #333; color: white; }
     
     input[type="range"] {
       flex: 1; margin-left: 10px;
@@ -217,8 +216,8 @@
     body.ocr-mode .ocr-content { display: block; }
     
     #zoom-level {
-        margin: 0 8px; font-size: 13px; color: rgba(255,255,255,0.8);
-        min-width: 40px; text-align: center;
+        margin: 0 6px; font-size: 11px; color: #888;
+        min-width: 35px; text-align: center;
     }
 
   </style>
