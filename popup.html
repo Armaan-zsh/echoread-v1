@@ -36,26 +36,40 @@
 
   <div id="pdf-controls">
     <button id="convert-pdf-btn">📚 Convert this PDF (OCR)</button>
-    <p style="font-size: 12px; text-align: center;">This page is a PDF. Convert it with OCR to use EchoRead.</p>
+    <button id="save-pdf-btn" style="background: #4CAF50; color: white;">💾 Save PDF to Library</button>
+    <button id="view-library-btn-pdf" style="background: #2196F3; color: white;">📚 View Library</button>
+    <p style="font-size: 12px; text-align: center;">Convert PDF with OCR or save directly to library.</p>
   </div>
 
   <div id="html-controls">
-    <button id="clean-view-btn">Focus Mode (Clean View)</button>
-    <button id="font-toggle-btn">Toggle Dyslexic Font</button>
+    <button id="clean-view-btn">📖 Focus Mode</button>
+    <button id="save-to-library-btn" style="background: #4CAF50; color: white;">💾 Save to Library</button>
+    
+    <div class="control-group">
+      <button id="eink-toggle-btn">📄 E Ink Mode</button>
+      <button id="amoled-toggle-btn">🌙 AMOLED Mode</button>
+    </div>
+    
+    <div class="control-group">
+      <button id="font-toggle-btn">Aa Toggle Font</button>
+      <label for="contrast-slider">Contrast</label>
+      <input type="range" id="contrast-slider" min="1" max="5" step="1" value="3">
+    </div>
+    
     <div class="control-group">
       <label for="line-height-slider">Line Height</label>
       <input type="range" id="line-height-slider" min="1" max="3" step="0.1" value="1.5">
-    </div>
-    <div class="control-group">
       <label for="letter-spacing-slider">Letter Spacing</label>
       <input type="range" id="letter-spacing-slider" min="0" max="10" step="0.5" value="0">
     </div>
+    
+    <button id="view-library-btn" style="background: #2196F3; color: white;">📚 View Library</button>
   </div>
 
   <div id="status-message">
     <p>Checking page...</p>
   </div>
 
-  <script src="popup.js"></script>
+  <script src="popup-beast.js"></script>
 </body>
 </html>

@@ -43,6 +43,7 @@ const viewModeBtn = document.getElementById('view-mode-btn');
 const goBackBtn = document.getElementById('go-back-btn');
 const settingsBtn = document.getElementById('settings-btn');
 const settingsPanel = document.getElementById('settings-panel');
+const savePdfLibraryBtn = document.getElementById('save-pdf-library-btn');
 
 const urlParams = new URLSearchParams(window.location.search);
 let pdfUrl = urlParams.get('url');
@@ -363,6 +364,33 @@ function setupAccessibilityControls() {
     
     // View mode toggle
     viewModeBtn.addEventListener('click', toggleViewMode);
+    
+    // Save to library
+    savePdfLibraryBtn.addEventListener('click', () => {
+        const title = document.title || 'PDF Document';
+        const textLayers = document.querySelectorAll('.textLayer');
+        let content = '';
+        textLayers.forEach(layer => {
+            content += layer.textContent + ' ';
+        });
+        
+        const item = {
+            id: Date.now(),
+            title: title,
+            url: pdfUrl,
+            type: 'pdf',
+            content: content.substring(0, 500) + '...',
+            savedAt: new Date().toISOString()
+        };
+        
+        chrome.storage.local.get(['echoread_library'], (result) => {
+            const library = result.echoread_library || [];
+            library.unshift(item);
+            chrome.storage.local.set({ echoread_library: library }, () => {
+                alert('PDF saved to library!');
+            });
+        });
+    });
     
     // Go back to normal PDF viewer
     goBackBtn.addEventListener('click', () => {

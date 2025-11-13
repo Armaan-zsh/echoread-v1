@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>EchoRead Library</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #f5f5f5; color: #1a1a1a; margin: 0; padding: 20px;
+    }
+    
+    .header {
+      text-align: center; margin-bottom: 30px;
+      border-bottom: 2px solid #ddd; padding-bottom: 20px;
+    }
+    
+    .header h1 {
+      margin: 0; font-size: 32px; color: #333;
+    }
+    
+    .header p {
+      margin: 10px 0 0 0; color: #666; font-size: 16px;
+    }
+    
+    .controls {
+      display: flex; justify-content: center; gap: 15px; margin-bottom: 30px;
+    }
+    
+    .controls button {
+      padding: 10px 20px; border: none; border-radius: 6px;
+      cursor: pointer; font-size: 14px; transition: all 0.2s ease;
+    }
+    
+    .clear-btn {
+      background: #ff4444; color: white;
+    }
+    .clear-btn:hover { background: #cc3333; }
+    
+    .theme-btn {
+      background: #4CAF50; color: white;
+    }
+    .theme-btn:hover { background: #45a049; }
+    
+    .library-grid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 20px; max-width: 1200px; margin: 0 auto;
+    }
+    
+    .library-item {
+      background: white; border-radius: 8px; padding: 20px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1); transition: transform 0.2s ease;
+    }
+    .library-item:hover { transform: translateY(-2px); }
+    
+    .item-type {
+      display: inline-block; padding: 4px 8px; border-radius: 4px;
+      font-size: 12px; font-weight: bold; margin-bottom: 10px;
+    }
+    .type-article { background: #e3f2fd; color: #1976d2; }
+    .type-pdf { background: #fff3e0; color: #f57c00; }
+    
+    .item-title {
+      font-size: 18px; font-weight: 600; margin-bottom: 8px;
+      color: #333; line-height: 1.3;
+    }
+    
+    .item-content {
+      color: #666; font-size: 14px; line-height: 1.4;
+      margin-bottom: 15px; max-height: 60px; overflow: hidden;
+    }
+    
+    .item-meta {
+      font-size: 12px; color: #999; margin-bottom: 15px;
+    }
+    
+    .item-actions {
+      display: flex; gap: 10px;
+    }
+    
+    .item-actions button {
+      padding: 6px 12px; border: none; border-radius: 4px;
+      cursor: pointer; font-size: 12px; transition: all 0.2s ease;
+    }
+    
+    .read-btn { background: #2196F3; color: white; }
+    .read-btn:hover { background: #1976D2; }
+    
+    .delete-btn { background: #f44336; color: white; }
+    .delete-btn:hover { background: #d32f2f; }
+    
+    .empty-state {
+      text-align: center; padding: 60px 20px; color: #666;
+    }
+    
+    .empty-state h2 { margin-bottom: 10px; }
+    
+    /* Theme Support */
+    body.eink-mode {
+      background: #E9E3D2 !important; color: #333333 !important;
+    }
+    body.eink-mode .library-item {
+      background: #E5DFC8 !important; color: #333333 !important;
+    }
+    
+    body.amoled-mode {
+      background: #000000 !important; color: #ffffff !important;
+    }
+    body.amoled-mode .library-item {
+      background: #111111 !important; color: #ffffff !important;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>📚 EchoRead Library</h1>
+    <p>Your saved articles and PDFs</p>
+  </div>
+  
+  <div class="controls">
+    <button id="eink-btn" class="theme-btn">📄 E Ink Mode</button>
+    <button id="amoled-btn" class="theme-btn">🌙 AMOLED Mode</button>
+    <button id="clear-btn" class="clear-btn">🗑️ Clear Library</button>
+  </div>
+  
+  <div id="library-container">
+    <div class="empty-state">
+      <h2>Loading your library...</h2>
+    </div>
+  </div>
+
+  <script>
+    const libraryContainer = document.getElementById('library-container');
+    const clearBtn = document.getElementById('clear-btn');
+    const einkBtn = document.getElementById('eink-btn');
+    const amoledBtn = document.getElementById('amoled-btn');
+    
+    // Load and display library
+    function loadLibrary() {
+      chrome.storage.local.get(['echoread_library'], (result) => {
+        const library = result.echoread_library || [];
+        
+        if (library.length === 0) {
+          libraryContainer.innerHTML = `
+            <div class="empty-state">
+              <h2>Your library is empty</h2>
+              <p>Save articles and PDFs using the EchoRead extension to see them here.</p>
+            </div>
+          `;
+          return;
+        }
+        
+        const gridHtml = library.map(item => `
+          <div class="library-item">
+            <div class="item-type type-${item.type}">${item.type.toUpperCase()}</div>
+            <div class="item-title">${item.title}</div>
+            <div class="item-content">${item.content.substring(0, 150)}...</div>
+            <div class="item-meta">Saved: ${new Date(item.savedAt).toLocaleDateString()}</div>
+            <div class="item-actions">
+              <button class="read-btn" onclick="openItem('${item.url}', '${item.type}')">Read</button>
+              <button class="delete-btn" onclick="deleteItem(${item.id})">Delete</button>
+            </div>
+          </div>
+        `).join('');
+        
+        libraryContainer.innerHTML = `<div class="library-grid">${gridHtml}</div>`;
+      });
+    }
+    
+    // Open item
+    function openItem(url, type) {
+      if (type === 'pdf') {
+        const viewerUrl = chrome.runtime.getURL(`pdf-viewer.html?url=${encodeURIComponent(url)}`);
+        chrome.tabs.create({ url: viewerUrl });
+      } else {
+        chrome.tabs.create({ url: url });
+      }
+    }
+    
+    // Delete item
+    function deleteItem(id) {
+      if (confirm('Delete this item from your library?')) {
+        chrome.storage.local.get(['echoread_library'], (result) => {
+          const library = result.echoread_library || [];
+          const filtered = library.filter(item => item.id !== id);
+          chrome.storage.local.set({ echoread_library: filtered }, loadLibrary);
+        });
+      }
+    }
+    
+    // Clear library
+    clearBtn.addEventListener('click', () => {
+      if (confirm('Clear entire library? This cannot be undone.')) {
+        chrome.storage.local.set({ echoread_library: [] }, loadLibrary);
+      }
+    });
+    
+    // Theme toggles
+    einkBtn.addEventListener('click', () => {
+      document.body.classList.remove('amoled-mode');
+      document.body.classList.toggle('eink-mode');
+    });
+    
+    amoledBtn.addEventListener('click', () => {
+      document.body.classList.remove('eink-mode');
+      document.body.classList.toggle('amoled-mode');
+    });
+    
+    // Load library on page load
+    loadLibrary();
+  </script>
+</body>
+</html>
