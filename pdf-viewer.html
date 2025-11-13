@@ -110,10 +110,21 @@
     
     .setting-btn {
       background: rgba(255,255,255,0.1); border: none; color: white;
-      padding: 6px 12px; border-radius: 6px; cursor: pointer;
-      font-size: 13px; transition: background 0.2s ease;
+      padding: 8px 12px; border-radius: 6px; cursor: pointer;
+      font-size: 13px; transition: all 0.2s ease; font-weight: 500;
+      display: flex; align-items: center; gap: 6px;
     }
-    .setting-btn:hover { background: rgba(255,255,255,0.2); }
+    .setting-btn:hover { 
+      background: rgba(255,255,255,0.2); 
+      transform: translateY(-1px);
+    }
+    
+    .primary-setting-btn {
+      background: #4CAF50; color: white;
+    }
+    .primary-setting-btn:hover {
+      background: #45a049;
+    }
     
     .zoom-btn {
       background: rgba(255,255,255,0.1); border: none; color: white;
@@ -229,9 +240,15 @@
       <h3>Display Settings</h3>
       
       <div class="setting-row">
-        <button id="font-toggle-btn" class="setting-btn">Toggle Font</button>
-        <button id="eink-toggle-btn" class="setting-btn">E Ink Mode</button>
-        <button id="amoled-toggle-btn" class="setting-btn">AMOLED Mode</button>
+        <button id="font-toggle-btn" class="setting-btn">
+          <span>Aa</span> Toggle Font
+        </button>
+        <button id="eink-toggle-btn" class="setting-btn">
+          <span>📄</span> E Ink Mode
+        </button>
+        <button id="amoled-toggle-btn" class="setting-btn">
+          <span>🌙</span> AMOLED Mode
+        </button>
       </div>
       
       <div class="setting-row">
@@ -253,12 +270,18 @@
         <button id="zoom-out-btn" class="zoom-btn">-</button>
         <span id="zoom-level">100%</span>
         <button id="zoom-in-btn" class="zoom-btn">+</button>
-        <button id="fullscreen-btn" class="setting-btn">Fullscreen</button>
+        <button id="fullscreen-btn" class="setting-btn">
+          <span>⛶</span> Fullscreen
+        </button>
       </div>
       
       <div class="setting-row">
-        <button id="view-mode-btn" class="setting-btn">OCR Mode</button>
-        <button id="save-pdf-library-btn" class="setting-btn" style="background: #4CAF50;">💾 Save to Library</button>
+        <button id="view-mode-btn" class="setting-btn">
+          <span>🔄</span> OCR Mode
+        </button>
+        <button id="save-pdf-library-btn" class="primary-setting-btn">
+          <span>💾</span> Save to Library
+        </button>
       </div>
     </div>
   </div>
