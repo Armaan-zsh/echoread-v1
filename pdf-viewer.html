@@ -55,29 +55,75 @@
     
     #ocr-status { font-size: 14px; font-style: italic; color: #555; text-align: center; }
     
-    /* --- Nav Bar --- */
+    /* --- Minimalist Nav Bar --- */
     #nav-bar {
-      position: fixed; top: 0; left: 0; width: 100%; background: #333;
-      color: white; display: flex;
-      flex-wrap: wrap; 
-      justify-content: center; align-items: center;
-      padding: 10px; z-index: 9999; box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+      position: fixed; top: 0; left: 0; width: 100%; background: rgba(0,0,0,0.8);
+      color: white; display: flex; justify-content: center; align-items: center;
+      padding: 12px; z-index: 9999; backdrop-filter: blur(10px);
+      border-bottom: 1px solid rgba(255,255,255,0.1);
     }
-    #nav-bar button { font-size: 16px; padding: 8px 12px; margin: 5px; cursor: pointer; }
-    #nav-bar button:disabled { background: #777; cursor: not-allowed; }
-    #page-num { font-size: 18px; font-weight: bold; margin: 5px 15px; }
     
-    /* --- Controls --- */
-    .controls-group {
-        display: flex;
-        align-items: center;
-        margin: 5px 10px;
-        border-left: 1px solid #777;
-        padding-left: 15px;
+    .nav-icon {
+      background: none; border: none; color: white; font-size: 20px;
+      padding: 8px 12px; margin: 0 8px; cursor: pointer; border-radius: 6px;
+      transition: background 0.2s ease;
     }
-    .controls-group label { margin-right: 10px; font-size: 14px; }
-    .controls-group input[type="range"] {
-        width: 100px;
+    .nav-icon:hover { background: rgba(255,255,255,0.1); }
+    .nav-icon:disabled { opacity: 0.5; cursor: not-allowed; }
+    
+    .close-btn { color: #ff6b6b; }
+    .close-btn:hover { background: rgba(255,107,107,0.2); }
+    
+    #page-num { 
+      font-size: 16px; font-weight: 500; margin: 0 20px; 
+      color: rgba(255,255,255,0.9);
+    }
+    
+    /* --- Settings Panel --- */
+    #settings-panel {
+      position: fixed; top: 60px; right: 20px; width: 300px;
+      background: rgba(0,0,0,0.9); color: white; border-radius: 12px;
+      padding: 20px; z-index: 10000; backdrop-filter: blur(20px);
+      border: 1px solid rgba(255,255,255,0.1);
+      box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+      transition: all 0.3s ease;
+    }
+    
+    .settings-hidden {
+      opacity: 0; transform: translateY(-10px); pointer-events: none;
+    }
+    
+    .settings-content h3 {
+      margin: 0 0 15px 0; font-size: 18px; font-weight: 500;
+      color: rgba(255,255,255,0.9);
+    }
+    
+    .setting-row {
+      display: flex; align-items: center; margin-bottom: 12px;
+      flex-wrap: wrap; gap: 8px;
+    }
+    
+    .setting-row label {
+      font-size: 14px; color: rgba(255,255,255,0.8);
+      min-width: 80px;
+    }
+    
+    .setting-btn {
+      background: rgba(255,255,255,0.1); border: none; color: white;
+      padding: 6px 12px; border-radius: 6px; cursor: pointer;
+      font-size: 13px; transition: background 0.2s ease;
+    }
+    .setting-btn:hover { background: rgba(255,255,255,0.2); }
+    
+    .zoom-btn {
+      background: rgba(255,255,255,0.1); border: none; color: white;
+      padding: 4px 8px; border-radius: 4px; cursor: pointer;
+      font-size: 16px; font-weight: bold;
+    }
+    .zoom-btn:hover { background: rgba(255,255,255,0.2); }
+    
+    input[type="range"] {
+      flex: 1; margin-left: 10px;
     }
     
     /* --- E INK MODE --- */
@@ -160,47 +206,61 @@
     body.ocr-mode .ocr-content { display: block; }
     
     #zoom-level {
-        margin: 0 10px;
-        font-weight: bold;
+        margin: 0 8px; font-size: 13px; color: rgba(255,255,255,0.8);
+        min-width: 40px; text-align: center;
     }
 
   </style>
 </head>
 <body>
+  <!-- Minimalist Navigation Bar -->
   <div id="nav-bar">
-    <button id="prev-btn">Previous</button>
+    <button id="prev-btn" class="nav-icon">‹</button>
     <span id="page-num">Loading...</span>
-    <input type="number" id="page-input" min="1" style="width: 60px; margin: 0 10px; text-align: center;" placeholder="Go">
-    <button id="next-btn">Next</button>
-    
-    <div class="controls-group">
-        <button id="font-toggle-btn">Toggle Font</button>
-        <button id="eink-toggle-btn">E Ink Mode</button>
-        <button id="amoled-toggle-btn">AMOLED Mode</button>
-    </div>
-    <div class="controls-group">
-        <label for="line-height-slider">Line Height</label>
+    <input type="number" id="page-input" min="1" style="width: 50px; text-align: center; border: none; background: transparent; color: white;" placeholder="">
+    <button id="next-btn" class="nav-icon">›</button>
+    <button id="settings-btn" class="nav-icon">Aa</button>
+    <button id="go-back-btn" class="nav-icon close-btn">✕</button>
+  </div>
+  
+  <!-- Hidden Settings Panel -->
+  <div id="settings-panel" class="settings-hidden">
+    <div class="settings-content">
+      <h3>Display Settings</h3>
+      
+      <div class="setting-row">
+        <button id="font-toggle-btn" class="setting-btn">Toggle Font</button>
+        <button id="eink-toggle-btn" class="setting-btn">E Ink Mode</button>
+        <button id="amoled-toggle-btn" class="setting-btn">AMOLED Mode</button>
+      </div>
+      
+      <div class="setting-row">
+        <label>Line Height</label>
         <input type="range" id="line-height-slider" min="1" max="3" step="0.1" value="1.6">
-    </div>
-    <div class="controls-group">
-        <label for="letter-spacing-slider">Letter Spacing</label>
+      </div>
+      
+      <div class="setting-row">
+        <label>Letter Spacing</label>
         <input type="range" id="letter-spacing-slider" min="0" max="5" step="0.1" value="0">
-    </div>
-    <div class="controls-group">
-        <label for="contrast-slider">Contrast</label>
+      </div>
+      
+      <div class="setting-row">
+        <label>Contrast</label>
         <input type="range" id="contrast-slider" min="1" max="5" step="1" value="3">
-    </div>
-    <div class="controls-group">
-        <button id="zoom-out-btn">-</button>
+      </div>
+      
+      <div class="setting-row">
+        <button id="zoom-out-btn" class="zoom-btn">-</button>
         <span id="zoom-level">100%</span>
-        <button id="zoom-in-btn">+</button>
-        <button id="fullscreen-btn">Fullscreen</button>
+        <button id="zoom-in-btn" class="zoom-btn">+</button>
+        <button id="fullscreen-btn" class="setting-btn">Fullscreen</button>
+      </div>
+      
+      <div class="setting-row">
+        <button id="view-mode-btn" class="setting-btn">OCR Mode</button>
+      </div>
     </div>
-    <div class="controls-group">
-        <button id="view-mode-btn">OCR Mode</button>
-        <button id="go-back-btn" style="background: #d32f2f; color: white;">Go Back to Normal PDF</button>
-    </div>
-    </div>
+  </div>
   
   <div id="page-container">
     <div id="ocr-status">Initializing...</div>

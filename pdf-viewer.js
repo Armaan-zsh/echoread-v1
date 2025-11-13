@@ -41,6 +41,8 @@ const zoomLevel = document.getElementById('zoom-level');
 const fullscreenBtn = document.getElementById('fullscreen-btn');
 const viewModeBtn = document.getElementById('view-mode-btn');
 const goBackBtn = document.getElementById('go-back-btn');
+const settingsBtn = document.getElementById('settings-btn');
+const settingsPanel = document.getElementById('settings-panel');
 
 const urlParams = new URLSearchParams(window.location.search);
 let pdfUrl = urlParams.get('url');
@@ -365,6 +367,18 @@ function setupAccessibilityControls() {
     // Go back to normal PDF viewer
     goBackBtn.addEventListener('click', () => {
         location.href = pdfUrl;
+    });
+    
+    // Settings panel toggle
+    settingsBtn.addEventListener('click', () => {
+        settingsPanel.classList.toggle('settings-hidden');
+    });
+    
+    // Close settings when clicking outside
+    document.addEventListener('click', (e) => {
+        if (!settingsPanel.contains(e.target) && !settingsBtn.contains(e.target)) {
+            settingsPanel.classList.add('settings-hidden');
+        }
     });
 }
 
