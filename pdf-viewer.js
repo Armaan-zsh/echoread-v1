@@ -19,6 +19,7 @@ let isAmoledMode = false;
 let currentContrast = 3;
 let isFullscreen = false;
 let isOcrMode = false;
+let isPageRendering = false;
 
 const pageNumDisplay = document.getElementById('page-num');
 const ocrStatus = document.getElementById('ocr-status');
@@ -139,37 +140,43 @@ async function appendPage(num) {
 
 // Keep original renderPage for button navigation
 async function renderPage(num) {
-  // Prevent invalid page numbers
-  if (num < 1 || num > totalPages) return;
+  // Prevent invalid page numbers or concurrent rendering
+  if (num < 1 || num > totalPages || isPageRendering) return;
   
-  const pageElement = document.getElementById(`page-${num}`);
-  if (pageElement) {
-    pageElement.scrollIntoView({ behavior: 'smooth' });
-    currentPageNum = num;
-    pageNumDisplay.textContent = `Page ${currentPageNum} / ${totalPages}`;
-  } else {
-    // Load missing pages in sequence
-    const missingPages = [];
-    for (let i = 1; i <= num; i++) {
-      if (!loadedPages.has(i)) {
-        missingPages.push(i);
+  isPageRendering = true;
+  
+  try {
+    const pageElement = document.getElementById(`page-${num}`);
+    if (pageElement) {
+      pageElement.scrollIntoView({ behavior: 'smooth' });
+      currentPageNum = num;
+      pageNumDisplay.textContent = `Page ${currentPageNum} / ${totalPages}`;
+    } else {
+      // Load missing pages in sequence
+      const missingPages = [];
+      for (let i = 1; i <= num; i++) {
+        if (!loadedPages.has(i)) {
+          missingPages.push(i);
+        }
       }
-    }
-    
-    // Load all missing pages
-    for (const pageNum of missingPages) {
-      await appendPage(pageNum);
-    }
-    
-    // Now scroll to target page
-    setTimeout(() => {
-      const targetElement = document.getElementById(`page-${num}`);
-      if (targetElement) {
-        targetElement.scrollIntoView({ behavior: 'smooth' });
-        currentPageNum = num;
-        pageNumDisplay.textContent = `Page ${currentPageNum} / ${totalPages}`;
+      
+      // Load all missing pages
+      for (const pageNum of missingPages) {
+        await appendPage(pageNum);
       }
-    }, 200);
+      
+      // Now scroll to target page
+      setTimeout(() => {
+        const targetElement = document.getElementById(`page-${num}`);
+        if (targetElement) {
+          targetElement.scrollIntoView({ behavior: 'smooth' });
+          currentPageNum = num;
+          pageNumDisplay.textContent = `Page ${currentPageNum} / ${totalPages}`;
+        }
+      }, 200);
+    }
+  } finally {
+    isPageRendering = false;
   }
 }
 
@@ -388,12 +395,19 @@ async function initializePdfViewer() {
 }
 
 // --- 4. EVENT LISTENERS & START ---
-prevBtn.addEventListener('click', () => { if (currentPageNum > 1) renderPage(currentPageNum - 1); });
-nextBtn.addEventListener('click', () => { if (currentPageNum < totalPages) renderPage(currentPageNum + 1); });
+prevBtn.addEventListener('click', () => { 
+  if (isPageRendering) return;
+  if (currentPageNum > 1) renderPage(currentPageNum - 1); 
+});
+nextBtn.addEventListener('click', () => { 
+  if (isPageRendering) return;
+  if (currentPageNum < totalPages) renderPage(currentPageNum + 1); 
+});
 
 // Page input functionality
 pageInput.addEventListener('keypress', (e) => {
   if (e.key === 'Enter') {
+    if (isPageRendering) return;
     const pageNum = parseInt(pageInput.value);
     if (pageNum >= 1 && pageNum <= totalPages) {
       renderPage(pageNum);
