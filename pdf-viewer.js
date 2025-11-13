@@ -68,13 +68,13 @@ async function appendPage(num) {
     if (pageText.trim().length < 50) { // SCANNED PDF
       const canvas = document.createElement('canvas');
       const ctx = canvas.getContext('2d');
-      const scale = window.devicePixelRatio * 2; // High quality rendering
+      const scale = 2.0; // High quality rendering
       const viewport = page.getViewport({ scale: scale });
       
       canvas.height = viewport.height;
       canvas.width = viewport.width;
-      canvas.style.width = Math.floor(viewport.width / window.devicePixelRatio) + 'px';
-      canvas.style.height = Math.floor(viewport.height / window.devicePixelRatio) + 'px';
+      canvas.style.maxWidth = '100%';
+      canvas.style.height = 'auto';
       
       await page.render({ canvasContext: ctx, viewport: viewport }).promise;
       pageDiv.appendChild(canvas);
@@ -95,34 +95,10 @@ async function appendPage(num) {
           console.error('OCR recognition failed:', ocrErr);
         }
       }
-    } else { // DIGITAL PDF - Render both canvas and text for better quality
-      // Render high-quality canvas background
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d');
-      const scale = window.devicePixelRatio * 1.8;
-      const viewport = page.getViewport({ scale: scale });
-      
-      canvas.height = viewport.height;
-      canvas.width = viewport.width;
-      canvas.style.width = Math.floor(viewport.width / window.devicePixelRatio) + 'px';
-      canvas.style.height = Math.floor(viewport.height / window.devicePixelRatio) + 'px';
-      canvas.style.position = 'absolute';
-      canvas.style.top = '0';
-      canvas.style.left = '0';
-      canvas.style.zIndex = '1';
-      
-      await page.render({ canvasContext: ctx, viewport: viewport }).promise;
-      
-      // Create text layer for selection
+    } else { // DIGITAL PDF
       const textDiv = document.createElement('div');
       textDiv.className = 'textLayer';
       textDiv.innerHTML = pageText;
-      textDiv.style.position = 'relative';
-      textDiv.style.zIndex = '2';
-      textDiv.style.background = 'transparent';
-      
-      pageDiv.style.position = 'relative';
-      pageDiv.appendChild(canvas);
       pageDiv.appendChild(textDiv);
     }
     
@@ -207,12 +183,16 @@ function setupAccessibilityControls() {
     const pageContainer = document.getElementById('page-container');
 
     fontToggleBtn.addEventListener('click', () => {
-        pageContainer.classList.toggle('opendyslexic-font');
-        if (pageContainer.classList.contains('opendyslexic-font')) {
-            pageContainer.style.fontFamily = 'OpenDyslexic, sans-serif';
-        } else {
-            pageContainer.style.fontFamily = 'sans-serif';
-        }
+        const textLayers = document.querySelectorAll('.textLayer');
+        textLayers.forEach(layer => {
+            if (layer.style.fontFamily.includes('OpenDyslexic')) {
+                layer.style.fontFamily = '';
+                fontToggleBtn.textContent = 'Toggle Font';
+            } else {
+                layer.style.fontFamily = 'OpenDyslexic, sans-serif';
+                fontToggleBtn.textContent = 'Normal Font';
+            }
+        });
     });
     
     einkToggleBtn.addEventListener('click', () => {
