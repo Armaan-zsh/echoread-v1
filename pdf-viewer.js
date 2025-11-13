@@ -39,6 +39,7 @@ const zoomOutBtn = document.getElementById('zoom-out-btn');
 const zoomLevel = document.getElementById('zoom-level');
 const fullscreenBtn = document.getElementById('fullscreen-btn');
 const viewModeBtn = document.getElementById('view-mode-btn');
+const goBackBtn = document.getElementById('go-back-btn');
 
 const urlParams = new URLSearchParams(window.location.search);
 let pdfUrl = urlParams.get('url');
@@ -138,14 +139,37 @@ async function appendPage(num) {
 
 // Keep original renderPage for button navigation
 async function renderPage(num) {
+  // Prevent invalid page numbers
+  if (num < 1 || num > totalPages) return;
+  
   const pageElement = document.getElementById(`page-${num}`);
   if (pageElement) {
     pageElement.scrollIntoView({ behavior: 'smooth' });
     currentPageNum = num;
     pageNumDisplay.textContent = `Page ${currentPageNum} / ${totalPages}`;
   } else {
-    await appendPage(num);
-    setTimeout(() => renderPage(num), 100);
+    // Load missing pages in sequence
+    const missingPages = [];
+    for (let i = 1; i <= num; i++) {
+      if (!loadedPages.has(i)) {
+        missingPages.push(i);
+      }
+    }
+    
+    // Load all missing pages
+    for (const pageNum of missingPages) {
+      await appendPage(pageNum);
+    }
+    
+    // Now scroll to target page
+    setTimeout(() => {
+      const targetElement = document.getElementById(`page-${num}`);
+      if (targetElement) {
+        targetElement.scrollIntoView({ behavior: 'smooth' });
+        currentPageNum = num;
+        pageNumDisplay.textContent = `Page ${currentPageNum} / ${totalPages}`;
+      }
+    }, 200);
   }
 }
 
@@ -170,34 +194,42 @@ async function initializeOcr() {
   }
 }
 
-// Setup scroll listener
+// Setup scroll listener with throttling
 function setupScrollListener() {
+  let scrollTimeout;
+  
   window.addEventListener('scroll', () => {
-    const scrollTop = window.pageYOffset;
-    const windowHeight = window.innerHeight;
-    const documentHeight = document.documentElement.scrollHeight;
+    // Clear previous timeout
+    clearTimeout(scrollTimeout);
     
-    // Load next page when 80% scrolled
-    if (scrollTop + windowHeight >= documentHeight * 0.8) {
-      const nextPage = Math.max(...Array.from(loadedPages)) + 1;
-      if (nextPage <= totalPages) {
-        appendPage(nextPage);
-      }
-    }
-    
-    // Update current page based on visible page
-    const pages = document.querySelectorAll('.pdf-page');
-    for (const page of pages) {
-      const rect = page.getBoundingClientRect();
-      if (rect.top <= windowHeight / 2 && rect.bottom >= windowHeight / 2) {
-        const pageNum = parseInt(page.getAttribute('data-page'));
-        if (pageNum !== currentPageNum) {
-          currentPageNum = pageNum;
-          pageNumDisplay.textContent = `Page ${currentPageNum} / ${totalPages}`;
+    // Set new timeout to prevent excessive calls
+    scrollTimeout = setTimeout(() => {
+      const scrollTop = window.pageYOffset;
+      const windowHeight = window.innerHeight;
+      const documentHeight = document.documentElement.scrollHeight;
+      
+      // Load next page when 80% scrolled (only if not already loading)
+      if (!isLoading && scrollTop + windowHeight >= documentHeight * 0.8) {
+        const nextPage = Math.max(...Array.from(loadedPages)) + 1;
+        if (nextPage <= totalPages) {
+          appendPage(nextPage);
         }
-        break;
       }
-    }
+      
+      // Update current page based on visible page
+      const pages = document.querySelectorAll('.pdf-page');
+      for (const page of pages) {
+        const rect = page.getBoundingClientRect();
+        if (rect.top <= windowHeight / 2 && rect.bottom >= windowHeight / 2) {
+          const pageNum = parseInt(page.getAttribute('data-page'));
+          if (pageNum !== currentPageNum) {
+            currentPageNum = pageNum;
+            pageNumDisplay.textContent = `Page ${currentPageNum} / ${totalPages}`;
+          }
+          break;
+        }
+      }
+    }, 100); // 100ms throttle
   });
 }
 
@@ -322,6 +354,11 @@ function setupAccessibilityControls() {
     
     // View mode toggle
     viewModeBtn.addEventListener('click', toggleViewMode);
+    
+    // Go back to normal PDF viewer
+    goBackBtn.addEventListener('click', () => {
+        location.href = pdfUrl;
+    });
 }
 
 // --- 3. MAIN STARTUP FUNCTION ---
