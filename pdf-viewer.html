@@ -141,6 +141,28 @@
         background: #111111 !important;
         color: #ffffff !important;
     }
+    
+    /* --- Fullscreen Mode --- */
+    body.fullscreen-mode {
+        padding-top: 60px;
+    }
+    body.fullscreen-mode #page-container {
+        margin: 0;
+        max-width: 100%;
+        padding: 10px;
+        box-shadow: none;
+    }
+    
+    /* --- View Mode Toggle --- */
+    .pdf-content { display: block; }
+    .ocr-content { display: none; }
+    body.ocr-mode .pdf-content { display: none; }
+    body.ocr-mode .ocr-content { display: block; }
+    
+    #zoom-level {
+        margin: 0 10px;
+        font-weight: bold;
+    }
 
   </style>
 </head>
@@ -167,6 +189,15 @@
     <div class="controls-group">
         <label for="contrast-slider">Contrast</label>
         <input type="range" id="contrast-slider" min="1" max="5" step="1" value="3">
+    </div>
+    <div class="controls-group">
+        <button id="zoom-out-btn">-</button>
+        <span id="zoom-level">100%</span>
+        <button id="zoom-in-btn">+</button>
+        <button id="fullscreen-btn">Fullscreen</button>
+    </div>
+    <div class="controls-group">
+        <button id="view-mode-btn">OCR Mode</button>
     </div>
     </div>
   

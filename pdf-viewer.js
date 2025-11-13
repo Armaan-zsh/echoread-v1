@@ -8,6 +8,8 @@ let tesseractWorker = null;
 let ocrInitialized = false;
 let loadedPages = new Set();
 let isLoading = false;
+let currentZoom = 1.0;
+let isOcrMode = false;
 
 const pageNumDisplay = document.getElementById('page-num');
 const ocrStatus = document.getElementById('ocr-status');
@@ -23,6 +25,11 @@ const amoledToggleBtn = document.getElementById('amoled-toggle-btn');
 const lineHeightSlider = document.getElementById('line-height-slider');
 const letterSpacingSlider = document.getElementById('letter-spacing-slider');
 const contrastSlider = document.getElementById('contrast-slider');
+const zoomInBtn = document.getElementById('zoom-in-btn');
+const zoomOutBtn = document.getElementById('zoom-out-btn');
+const zoomLevel = document.getElementById('zoom-level');
+const fullscreenBtn = document.getElementById('fullscreen-btn');
+const viewModeBtn = document.getElementById('view-mode-btn');
 
 const urlParams = new URLSearchParams(window.location.search);
 let pdfUrl = urlParams.get('url');
@@ -65,10 +72,18 @@ async function appendPage(num) {
       }
     }
 
+    // Create PDF content container
+    const pdfContent = document.createElement('div');
+    pdfContent.className = 'pdf-content';
+    
+    // Create OCR content container
+    const ocrContent = document.createElement('div');
+    ocrContent.className = 'ocr-content textLayer';
+    
     if (pageText.trim().length < 50) { // SCANNED PDF
       const canvas = document.createElement('canvas');
       const ctx = canvas.getContext('2d');
-      const scale = 2.0; // High quality rendering
+      const scale = 2.0 * currentZoom;
       const viewport = page.getViewport({ scale: scale });
       
       canvas.height = viewport.height;
@@ -77,7 +92,7 @@ async function appendPage(num) {
       canvas.style.height = 'auto';
       
       await page.render({ canvasContext: ctx, viewport: viewport }).promise;
-      pageDiv.appendChild(canvas);
+      pdfContent.appendChild(canvas);
       
       // OCR for scanned pages
       if (!ocrInitialized) {
@@ -87,20 +102,45 @@ async function appendPage(num) {
       if (ocrInitialized && tesseractWorker) {
         try {
           const { data: { text } } = await tesseractWorker.recognize(canvas);
-          const textDiv = document.createElement('div');
-          textDiv.className = 'textLayer';
-          textDiv.innerHTML = text.replace(/\n/g, '<br>');
-          pageDiv.appendChild(textDiv);
+          ocrContent.innerHTML = text.replace(/\n/g, '<br>');
         } catch (ocrErr) {
           console.error('OCR recognition failed:', ocrErr);
+          ocrContent.innerHTML = 'OCR failed for this page';
         }
       }
     } else { // DIGITAL PDF
       const textDiv = document.createElement('div');
       textDiv.className = 'textLayer';
       textDiv.innerHTML = pageText;
-      pageDiv.appendChild(textDiv);
+      textDiv.style.fontSize = `${14 * currentZoom}px`;
+      pdfContent.appendChild(textDiv);
+      
+      // Also run OCR on digital PDF for OCR mode
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      const viewport = page.getViewport({ scale: 1.5 });
+      canvas.height = viewport.height;
+      canvas.width = viewport.width;
+      await page.render({ canvasContext: ctx, viewport: viewport }).promise;
+      
+      if (!ocrInitialized) {
+        await initializeOcr();
+      }
+      
+      if (ocrInitialized && tesseractWorker) {
+        try {
+          const { data: { text } } = await tesseractWorker.recognize(canvas);
+          ocrContent.innerHTML = text.replace(/\n/g, '<br>');
+        } catch (ocrErr) {
+          ocrContent.innerHTML = pageText; // Fallback to original text
+        }
+      } else {
+        ocrContent.innerHTML = pageText;
+      }
     }
+    
+    pageDiv.appendChild(pdfContent);
+    pageDiv.appendChild(ocrContent);
     
     scrollContainer.appendChild(pageDiv);
     ocrStatus.textContent = `Page ${num} loaded`;
@@ -194,6 +234,48 @@ function setupAccessibilityControls() {
             }
         });
     });
+    
+    // Zoom controls
+    zoomInBtn.addEventListener('click', () => {
+        currentZoom = Math.min(currentZoom + 0.25, 3.0);
+        updateZoom();
+    });
+    
+    zoomOutBtn.addEventListener('click', () => {
+        currentZoom = Math.max(currentZoom - 0.25, 0.5);
+        updateZoom();
+    });
+    
+    // Fullscreen toggle
+    fullscreenBtn.addEventListener('click', () => {
+        document.body.classList.toggle('fullscreen-mode');
+        if (document.body.classList.contains('fullscreen-mode')) {
+            fullscreenBtn.textContent = 'Exit Fullscreen';
+        } else {
+            fullscreenBtn.textContent = 'Fullscreen';
+        }
+    });
+    
+    // View mode toggle
+    viewModeBtn.addEventListener('click', () => {
+        document.body.classList.toggle('ocr-mode');
+        if (document.body.classList.contains('ocr-mode')) {
+            viewModeBtn.textContent = 'PDF Mode';
+        } else {
+            viewModeBtn.textContent = 'OCR Mode';
+        }
+    });
+}
+
+// Update zoom function
+function updateZoom() {
+    zoomLevel.textContent = Math.round(currentZoom * 100) + '%';
+    // Clear and reload current pages with new zoom
+    const currentPage = currentPageNum;
+    scrollContainer.innerHTML = '';
+    loadedPages.clear();
+    appendPage(currentPage);
+}
     
     einkToggleBtn.addEventListener('click', () => {
         // Turn off AMOLED mode first
