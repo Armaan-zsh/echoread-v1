@@ -68,9 +68,13 @@ async function appendPage(num) {
     if (pageText.trim().length < 50) { // SCANNED PDF
       const canvas = document.createElement('canvas');
       const ctx = canvas.getContext('2d');
-      const viewport = page.getViewport({ scale: 1.5 });
+      const scale = window.devicePixelRatio * 2; // High quality rendering
+      const viewport = page.getViewport({ scale: scale });
+      
       canvas.height = viewport.height;
       canvas.width = viewport.width;
+      canvas.style.width = Math.floor(viewport.width / window.devicePixelRatio) + 'px';
+      canvas.style.height = Math.floor(viewport.height / window.devicePixelRatio) + 'px';
       
       await page.render({ canvasContext: ctx, viewport: viewport }).promise;
       pageDiv.appendChild(canvas);
@@ -91,10 +95,34 @@ async function appendPage(num) {
           console.error('OCR recognition failed:', ocrErr);
         }
       }
-    } else { // DIGITAL PDF
+    } else { // DIGITAL PDF - Render both canvas and text for better quality
+      // Render high-quality canvas background
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      const scale = window.devicePixelRatio * 1.8;
+      const viewport = page.getViewport({ scale: scale });
+      
+      canvas.height = viewport.height;
+      canvas.width = viewport.width;
+      canvas.style.width = Math.floor(viewport.width / window.devicePixelRatio) + 'px';
+      canvas.style.height = Math.floor(viewport.height / window.devicePixelRatio) + 'px';
+      canvas.style.position = 'absolute';
+      canvas.style.top = '0';
+      canvas.style.left = '0';
+      canvas.style.zIndex = '1';
+      
+      await page.render({ canvasContext: ctx, viewport: viewport }).promise;
+      
+      // Create text layer for selection
       const textDiv = document.createElement('div');
       textDiv.className = 'textLayer';
       textDiv.innerHTML = pageText;
+      textDiv.style.position = 'relative';
+      textDiv.style.zIndex = '2';
+      textDiv.style.background = 'transparent';
+      
+      pageDiv.style.position = 'relative';
+      pageDiv.appendChild(canvas);
       pageDiv.appendChild(textDiv);
     }
     
