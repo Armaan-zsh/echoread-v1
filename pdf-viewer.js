@@ -10,6 +10,16 @@ let loadedPages = new Set();
 let isLoading = false;
 let currentZoom = 1.0;
 
+// --- PERSISTENT STATE VARIABLES ---
+let isFontToggled = false;
+let currentLineHeight = 1.6;
+let currentLetterSpacing = 0;
+let isEinkMode = false;
+let isAmoledMode = false;
+let currentContrast = 3;
+let isFullscreen = false;
+let isOcrMode = false;
+
 const pageNumDisplay = document.getElementById('page-num');
 const ocrStatus = document.getElementById('ocr-status');
 const prevBtn = document.getElementById('prev-btn');
@@ -98,6 +108,9 @@ async function appendPage(num) {
           textDiv.innerHTML = text.replace(/\n/g, '<br>');
           textDiv.style.display = 'none'; // Hidden by default
           pageDiv.appendChild(textDiv);
+          
+          // Apply persistent styles
+          applyCurrentStyles(textDiv);
         } catch (ocrErr) {
           console.error('OCR recognition failed:', ocrErr);
         }
@@ -106,8 +119,10 @@ async function appendPage(num) {
       const textDiv = document.createElement('div');
       textDiv.className = 'textLayer';
       textDiv.innerHTML = pageText;
-      textDiv.style.fontSize = `${14 * currentZoom}px`;
       pageDiv.appendChild(textDiv);
+      
+      // Apply persistent styles
+      applyCurrentStyles(textDiv);
     }
     
     scrollContainer.appendChild(pageDiv);
@@ -186,16 +201,20 @@ function setupScrollListener() {
   });
 }
 
-// Simple zoom function
-function updateZoom() {
-  zoomLevel.textContent = Math.round(currentZoom * 100) + '%';
-  // Apply zoom to existing text layers
+
+
+// Apply persistent styles to any text element
+function applyCurrentStyles(textElement) {
+  textElement.style.fontSize = `${14 * currentZoom}px`;
+  textElement.style.fontFamily = isFontToggled ? 'OpenDyslexic, sans-serif' : '';
+  textElement.style.lineHeight = currentLineHeight;
+  textElement.style.letterSpacing = `${currentLetterSpacing}px`;
+}
+
+// Apply styles to all existing text layers
+function applyStylesToAllText() {
   const textLayers = document.querySelectorAll('.textLayer');
-  textLayers.forEach(layer => {
-    if (!layer.classList.contains('ocr-text')) {
-      layer.style.fontSize = `${14 * currentZoom}px`;
-    }
-  });
+  textLayers.forEach(layer => applyCurrentStyles(layer));
 }
 
 // Simple view mode toggle
@@ -226,16 +245,9 @@ function setupAccessibilityControls() {
     const pageContainer = document.getElementById('page-container');
 
     fontToggleBtn.addEventListener('click', () => {
-        const textLayers = document.querySelectorAll('.textLayer');
-        textLayers.forEach(layer => {
-            if (layer.style.fontFamily.includes('OpenDyslexic')) {
-                layer.style.fontFamily = '';
-                fontToggleBtn.textContent = 'Toggle Font';
-            } else {
-                layer.style.fontFamily = 'OpenDyslexic, sans-serif';
-                fontToggleBtn.textContent = 'Normal Font';
-            }
-        });
+        isFontToggled = !isFontToggled;
+        fontToggleBtn.textContent = isFontToggled ? 'Normal Font' : 'Toggle Font';
+        applyStylesToAllText();
     });
     
     einkToggleBtn.addEventListener('click', () => {
@@ -269,11 +281,13 @@ function setupAccessibilityControls() {
     });
 
     lineHeightSlider.addEventListener('input', (e) => {
-        pageContainer.style.lineHeight = e.target.value;
+        currentLineHeight = e.target.value;
+        applyStylesToAllText();
     });
 
     letterSpacingSlider.addEventListener('input', (e) => {
-        pageContainer.style.letterSpacing = `${e.target.value}px`;
+        currentLetterSpacing = e.target.value;
+        applyStylesToAllText();
     });
     
     contrastSlider.addEventListener('input', (e) => {
@@ -286,12 +300,14 @@ function setupAccessibilityControls() {
     // Simple zoom controls
     zoomInBtn.addEventListener('click', () => {
         currentZoom = Math.min(currentZoom + 0.25, 3.0);
-        updateZoom();
+        zoomLevel.textContent = Math.round(currentZoom * 100) + '%';
+        applyStylesToAllText();
     });
     
     zoomOutBtn.addEventListener('click', () => {
         currentZoom = Math.max(currentZoom - 0.25, 0.5);
-        updateZoom();
+        zoomLevel.textContent = Math.round(currentZoom * 100) + '%';
+        applyStylesToAllText();
     });
     
     // Fullscreen toggle
