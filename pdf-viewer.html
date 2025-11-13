@@ -4,73 +4,50 @@
   <meta charset="UTF-8">
   <title>EchoRead PDF Viewer</title>
   <style>
+    /* --- Font Definition --- */
     @font-face {
       font-family: 'OpenDyslexic';
       src: url('chrome-extension://__MSG_@@extension_id__/OpenDyslexic-Regular.otf');
     }
   
     body { background: #f5f5f5; padding-top: 80px; font-family: sans-serif; margin: 0; }
-    
-    /* NEW: Page container is now just a shadow box */
     #page-container {
-      background: white;
-      margin: 20px auto;
-      width: 800px; /* We'll control size from JS */
-      min-height: 80vh;
-      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+      background: white; margin: 20px auto; max-width: 800px;
+      min-height: 80vh; box-shadow: 0 0 10px rgba(0,0,0,0.1); padding: 40px;
       position: relative;
     }
     
-    /* NEW: Canvas is the background layer */
-    #pdf-canvas {
+    /* --- Text Layer Styles --- */
+    .textLayer {
+      line-height: 1.6;
+      font-size: 18px;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+      background: rgba(255,255,255,0.9);
+    }
+    
+    #pages-scroll-container {
         width: 100%;
+    }
+    
+    .pdf-page {
+        margin-bottom: 20px;
+        padding: 20px;
+        border: 1px solid #ddd;
+        background: white;
+        position: relative;
+    }
+    
+    .pdf-page canvas {
+        max-width: 100%;
+        height: auto;
+        margin: 0 auto;
         display: block;
     }
-
-    /* NEW: The textLayer is now an overlay that
-      perfectly matches the canvas size.
-      pdf.js will add text spans *inside* this layer.
-    */
-    .textLayer {
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        opacity: 0.8; /* Make text slightly transparent to see canvas */
-        line-height: 1.0;
-    }
-    /* pdf.js will create these spans */
-    .textLayer ::selection { background: rgba(0,0,255,0.3); }
-    .textLayer > span {
-        position: absolute;
-        white-space: pre;
-        color: transparent; /* Makes text invisible, but selectable */
-        transform-origin: 0% 0%;
-    }
     
-    /* --- NEW: E-Ink Mode --- */
-    body.e-ink-mode {
-        background: #f1f1f1;
-    }
-    body.e-ink-mode #page-container {
-        background: #f1f1f1;
-        box-shadow: none;
-    }
-    body.e-ink-mode .textLayer {
-        /* In E-Ink, we make the text visible and hide the canvas */
-        opacity: 1;
-        background: #f1f1f1;
-    }
-    body.e-ink-mode .textLayer > span {
-        color: #333; /* The text is now dark gray */
-    }
-    body.e-ink-mode #pdf-canvas {
-        display: none; /* Hide the canvas */
-    }
-    
-    /* --- Nav Bar is mostly the same --- */
     #ocr-status { font-size: 14px; font-style: italic; color: #555; text-align: center; }
+    
+    /* --- Nav Bar --- */
     #nav-bar {
       position: fixed; top: 0; left: 0; width: 100%; background: #333;
       color: white; display: flex;
@@ -81,6 +58,8 @@
     #nav-bar button { font-size: 16px; padding: 8px 12px; margin: 5px; cursor: pointer; }
     #nav-bar button:disabled { background: #777; cursor: not-allowed; }
     #page-num { font-size: 18px; font-weight: bold; margin: 5px 15px; }
+    
+    /* --- Controls --- */
     .controls-group {
         display: flex;
         align-items: center;
@@ -89,7 +68,71 @@
         padding-left: 15px;
     }
     .controls-group label { margin-right: 10px; font-size: 14px; }
-    .controls-group input[type="range"] { width: 100px; }
+    .controls-group input[type="range"] {
+        width: 100px;
+    }
+    
+    /* --- E INK MODE --- */
+    body.eink-mode.contrast-1 { background: #E9E3D2 !important; color: #555555 !important; }
+    body.eink-mode.contrast-1 .pdf-page { background: #E9E3D2 !important; }
+    body.eink-mode.contrast-1 .textLayer { background: rgba(233, 227, 210, 0.95) !important; color: #555555 !important; }
+    body.eink-mode.contrast-1 #page-container { background: #E9E3D2 !important; }
+    
+    body.eink-mode.contrast-2 { background: #E5DFC8 !important; color: #444444 !important; }
+    body.eink-mode.contrast-2 .pdf-page { background: #E5DFC8 !important; }
+    body.eink-mode.contrast-2 .textLayer { background: rgba(229, 223, 200, 0.95) !important; color: #444444 !important; }
+    body.eink-mode.contrast-2 #page-container { background: #E5DFC8 !important; }
+    
+    body.eink-mode.contrast-3 { background: #E1DBBE !important; color: #333333 !important; }
+    body.eink-mode.contrast-3 .pdf-page { background: #E1DBBE !important; }
+    body.eink-mode.contrast-3 .textLayer { background: rgba(225, 219, 190, 0.95) !important; color: #333333 !important; }
+    body.eink-mode.contrast-3 #page-container { background: #E1DBBE !important; }
+    
+    body.eink-mode.contrast-4 { background: #DDD7B4 !important; color: #222222 !important; }
+    body.eink-mode.contrast-4 .pdf-page { background: #DDD7B4 !important; }
+    body.eink-mode.contrast-4 .textLayer { background: rgba(221, 215, 180, 0.95) !important; color: #222222 !important; }
+    body.eink-mode.contrast-4 #page-container { background: #DDD7B4 !important; }
+    
+    body.eink-mode.contrast-5 { background: #D8D3C3 !important; color: #000000 !important; }
+    body.eink-mode.contrast-5 .pdf-page { background: #D8D3C3 !important; }
+    body.eink-mode.contrast-5 .textLayer { background: rgba(216, 211, 195, 0.95) !important; color: #000000 !important; }
+    body.eink-mode.contrast-5 #page-container { background: #D8D3C3 !important; }
+    
+    /* --- AMOLED MODE --- */
+    body.amoled-mode.contrast-1 { background: #000000 !important; color: #cccccc !important; }
+    body.amoled-mode.contrast-1 .pdf-page { background: #000000 !important; }
+    body.amoled-mode.contrast-1 .textLayer { background: rgba(0, 0, 0, 0.95) !important; color: #cccccc !important; }
+    body.amoled-mode.contrast-1 #page-container { background: #000000 !important; }
+    body.amoled-mode.contrast-1 canvas { filter: invert(1) !important; }
+    
+    body.amoled-mode.contrast-2 { background: #000000 !important; color: #dddddd !important; }
+    body.amoled-mode.contrast-2 .pdf-page { background: #000000 !important; }
+    body.amoled-mode.contrast-2 .textLayer { background: rgba(0, 0, 0, 0.95) !important; color: #dddddd !important; }
+    body.amoled-mode.contrast-2 #page-container { background: #000000 !important; }
+    body.amoled-mode.contrast-2 canvas { filter: invert(1) !important; }
+    
+    body.amoled-mode.contrast-3 { background: #000000 !important; color: #eeeeee !important; }
+    body.amoled-mode.contrast-3 .pdf-page { background: #000000 !important; }
+    body.amoled-mode.contrast-3 .textLayer { background: rgba(0, 0, 0, 0.95) !important; color: #eeeeee !important; }
+    body.amoled-mode.contrast-3 #page-container { background: #000000 !important; }
+    body.amoled-mode.contrast-3 canvas { filter: invert(1) !important; }
+    
+    body.amoled-mode.contrast-4 { background: #000000 !important; color: #f5f5f5 !important; }
+    body.amoled-mode.contrast-4 .pdf-page { background: #000000 !important; }
+    body.amoled-mode.contrast-4 .textLayer { background: rgba(0, 0, 0, 0.95) !important; color: #f5f5f5 !important; }
+    body.amoled-mode.contrast-4 #page-container { background: #000000 !important; }
+    body.amoled-mode.contrast-4 canvas { filter: invert(1) !important; }
+    
+    body.amoled-mode.contrast-5 { background: #000000 !important; color: #ffffff !important; }
+    body.amoled-mode.contrast-5 .pdf-page { background: #000000 !important; }
+    body.amoled-mode.contrast-5 .textLayer { background: rgba(0, 0, 0, 0.95) !important; color: #ffffff !important; }
+    body.amoled-mode.contrast-5 #page-container { background: #000000 !important; }
+    body.amoled-mode.contrast-5 canvas { filter: invert(1) !important; }
+    
+    body.amoled-mode #nav-bar {
+        background: #111111 !important;
+        color: #ffffff !important;
+    }
 
   </style>
 </head>
@@ -97,10 +140,13 @@
   <div id="nav-bar">
     <button id="prev-btn">Previous</button>
     <span id="page-num">Loading...</span>
+    <input type="number" id="page-input" min="1" style="width: 60px; margin: 0 10px; text-align: center;" placeholder="Go">
     <button id="next-btn">Next</button>
     
     <div class="controls-group">
         <button id="font-toggle-btn">Toggle Font</button>
+        <button id="eink-toggle-btn">E Ink Mode</button>
+        <button id="amoled-toggle-btn">AMOLED Mode</button>
     </div>
     <div class="controls-group">
         <label for="line-height-slider">Line Height</label>
@@ -111,18 +157,19 @@
         <input type="range" id="letter-spacing-slider" min="0" max="5" step="0.1" value="0">
     </div>
     <div class="controls-group">
-        <button id="e-ink-btn">E-Ink Mode</button>
+        <label for="contrast-slider">Contrast</label>
+        <input type="range" id="contrast-slider" min="1" max="5" step="1" value="3">
     </div>
-  </div>
+    </div>
   
   <div id="page-container">
     <div id="ocr-status">Initializing...</div>
-    <canvas id="pdf-canvas"></canvas>
-    <div id="text-content-layer" class="textLayer"></div>
+    <div id="pages-scroll-container"></div>
   </div>
 
   <script src="pdf.js"></script>
   <script src="tesseract.min.js"></script>
   <script src="pdf-viewer.js"></script>
+
 </body>
 </html>

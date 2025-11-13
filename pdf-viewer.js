@@ -1,4 +1,4 @@
-// --- PDF VIEWER v12.0 (Aesthetic + Streaming + Controls) ---
+// --- PDF VIEWER v11.0 (RESTORED WITH ALL FEATURES) ---
 
 // --- 1. GET UI ELEMENTS ---
 let pdfDoc = null;
@@ -6,21 +6,23 @@ let currentPageNum = 1;
 let totalPages = 0;
 let tesseractWorker = null;
 let ocrInitialized = false;
+let loadedPages = new Set();
+let isLoading = false;
 
 const pageNumDisplay = document.getElementById('page-num');
-const textContentLayer = document.getElementById('text-content-layer');
 const ocrStatus = document.getElementById('ocr-status');
 const prevBtn = document.getElementById('prev-btn');
 const nextBtn = document.getElementById('next-btn');
-const canvas = document.getElementById('pdf-canvas');
-const ctx = canvas.getContext('2d');
-const pageContainer = document.getElementById('page-container');
+const pageInput = document.getElementById('page-input');
+const scrollContainer = document.getElementById('pages-scroll-container');
 
-// --- NEW: Accessibility Controls
+// --- Get All Controls ---
 const fontToggleBtn = document.getElementById('font-toggle-btn');
+const einkToggleBtn = document.getElementById('eink-toggle-btn');
+const amoledToggleBtn = document.getElementById('amoled-toggle-btn');
 const lineHeightSlider = document.getElementById('line-height-slider');
 const letterSpacingSlider = document.getElementById('letter-spacing-slider');
-const eInkBtn = document.getElementById('e-ink-btn');
+const contrastSlider = document.getElementById('contrast-slider');
 
 const urlParams = new URLSearchParams(window.location.search);
 let pdfUrl = urlParams.get('url');
@@ -28,67 +30,95 @@ if (pdfUrl) pdfUrl = decodeURIComponent(pdfUrl);
 
 // --- 2. DEFINE FUNCTIONS ---
 
-// Streaming Loader for "file:///" (The "Slow" Bug Fix)
-async function loadLocalPdfWithStreaming(fileUrl) {
-  ocrStatus.textContent = "Fetching local file...";
-  
+// Simple direct PDF loading (WORKING VERSION)
+async function loadPdfDirect(fileUrl) {
   const response = await fetch(fileUrl);
-  const total = parseInt(response.headers.get('content-length'), 10);
-  const reader = response.body.getReader();
-  
-  ocrStatus.textContent = "Sipping first chunk (64KB)...";
-  const { value: firstChunk } = await reader.read();
-  const initialData = new Uint8Array(firstChunk);
-  
-  const transport = new pdfjsLib.PDFDataRangeTransport(total, initialData);
-  
-  (async () => {
-    let loaded = initialData.length;
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) {
-        transport.onDataRangeLoad(loaded, total);
-        break;
-      }
-      const chunk = new Uint8Array(value);
-      transport.onDataRange(loaded, chunk);
-      loaded += chunk.length;
-      ocrStatus.textContent = `Loading PDF in background... (${Math.round(loaded/total*100)}%)`;
-    }
-  })();
-  
-  return pdfjsLib.getDocument({
-    range: transport,
-    url: null 
-  }).promise;
+  const arrayBuffer = await response.arrayBuffer();
+  const uint8Array = new Uint8Array(arrayBuffer);
+  return pdfjsLib.getDocument(uint8Array).promise;
 }
 
-
-async function performOcr(pageNum) {
+// Append page to scroll container
+async function appendPage(num) {
+  if (loadedPages.has(num) || isLoading || num > totalPages) return;
+  
+  isLoading = true;
+  loadedPages.add(num);
+  
   try {
-    ocrStatus.textContent = `Running OCR on page ${pageNum}...`;
-    // We render the canvas first for Tesseract
-    const page = await pdfDoc.getPage(pageNum);
-    const viewport = page.getViewport({ scale: 1.5 });
-    canvas.height = viewport.height;
-    canvas.width = viewport.width;
-    pageContainer.style.width = `${viewport.width}px`; // Set page width
+    ocrStatus.textContent = `Loading page ${num}...`;
     
-    await page.render({ canvasContext: ctx, viewport: viewport }).promise;
+    // Create page container
+    const pageDiv = document.createElement('div');
+    pageDiv.className = 'pdf-page';
+    pageDiv.id = `page-${num}`;
+    pageDiv.setAttribute('data-page', num);
     
-    const { data: { text } } = await tesseractWorker.recognize(canvas);
+    const page = await pdfDoc.getPage(num);
+    const textContent = await page.getTextContent();
+    let pageText = "";
     
-    // This is different: We just dump the text. It won't be aligned.
-    // This is the trade-off for scanned PDFs.
-    textContentLayer.innerHTML = text.replace(/\n/g, '<br>');
-    textContentLayer.style.display = 'block';
-    textContentLayer.style.color = '#333'; // Make OCR text visible
-    canvas.style.display = 'none'; // Hide canvas
+    if (textContent && textContent.items.length > 0) {
+      for (const item of textContent.items) {
+        pageText += item.str + " ";
+        if (item.hasEOL) { pageText += "<br>"; }
+      }
+    }
+
+    if (pageText.trim().length < 50) { // SCANNED PDF
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      const viewport = page.getViewport({ scale: 1.5 });
+      canvas.height = viewport.height;
+      canvas.width = viewport.width;
+      
+      await page.render({ canvasContext: ctx, viewport: viewport }).promise;
+      pageDiv.appendChild(canvas);
+      
+      // OCR for scanned pages
+      if (!ocrInitialized) {
+        await initializeOcr();
+      }
+      
+      if (ocrInitialized && tesseractWorker) {
+        try {
+          const { data: { text } } = await tesseractWorker.recognize(canvas);
+          const textDiv = document.createElement('div');
+          textDiv.className = 'textLayer';
+          textDiv.innerHTML = text.replace(/\n/g, '<br>');
+          pageDiv.appendChild(textDiv);
+        } catch (ocrErr) {
+          console.error('OCR recognition failed:', ocrErr);
+        }
+      }
+    } else { // DIGITAL PDF
+      const textDiv = document.createElement('div');
+      textDiv.className = 'textLayer';
+      textDiv.innerHTML = pageText;
+      pageDiv.appendChild(textDiv);
+    }
     
-    ocrStatus.textContent = `Page ${pageNum} loaded (from Scan).`;
+    scrollContainer.appendChild(pageDiv);
+    ocrStatus.textContent = `Page ${num} loaded`;
+    
   } catch (err) {
-    console.error('OCR failed:', err);
-    ocrStatus.textContent = `OCR error on page ${pageNum}: ${err.message}.`;
+    console.error(`Error loading page ${num}:`, err);
+    ocrStatus.textContent = `Error loading page ${num}`;
+  }
+  
+  isLoading = false;
+}
+
+// Keep original renderPage for button navigation
+async function renderPage(num) {
+  const pageElement = document.getElementById(`page-${num}`);
+  if (pageElement) {
+    pageElement.scrollIntoView({ behavior: 'smooth' });
+    currentPageNum = num;
+    pageNumDisplay.textContent = `Page ${currentPageNum} / ${totalPages}`;
+  } else {
+    await appendPage(num);
+    setTimeout(() => renderPage(num), 100);
   }
 }
 
@@ -96,81 +126,58 @@ async function initializeOcr() {
   try {
     ocrStatus.textContent = "Loading OCR engine (one-time setup)...";
     
+    if (!window.Tesseract) {
+      throw new Error('Tesseract not loaded');
+    }
+    
     tesseractWorker = await window.Tesseract.createWorker();
     await tesseractWorker.loadLanguage('eng');
     await tesseractWorker.initialize('eng');
     ocrInitialized = true;
+    ocrStatus.textContent = "OCR engine ready.";
   } catch (err) {
     console.error("OCR failed:", err);
+    ocrInitialized = false;
+    tesseractWorker = null;
     ocrStatus.textContent = "OCR unavailable. Showing images only.";
   }
 }
 
-async function renderPage(num) {
-  try {
-    textContentLayer.innerHTML = ""; // Clear old text layer
-    ocrStatus.textContent = `Loading page ${num}...`;
-    prevBtn.disabled = true;
-    nextBtn.disabled = true;
-
-    const page = await pdfDoc.getPage(num);
-    const viewport = page.getViewport({ scale: 1.5 }); // Use a standard scale
-
-    // --- NEW: Set Page Dimensions ---
-    canvas.height = viewport.height;
-    canvas.width = viewport.width;
-    textContentLayer.style.height = `${viewport.height}px`;
-    textContentLayer.style.width = `${viewport.width}px`;
-    pageContainer.style.width = `${viewport.width}px`;
+// Setup scroll listener
+function setupScrollListener() {
+  window.addEventListener('scroll', () => {
+    const scrollTop = window.pageYOffset;
+    const windowHeight = window.innerHeight;
+    const documentHeight = document.documentElement.scrollHeight;
     
-    // --- Render BOTH Canvas AND Text Layer ---
-    
-    // 1. Render the Canvas (the "picture" of the page)
-    await page.render({ canvasContext: ctx, viewport: viewport }).promise;
-    
-    // 2. Render the Text Layer (the "selectable" text)
-    // This is the "Aesthetic" fix
-    const textContent = await page.getTextContent();
-    if (textContent.items.length === 0) {
-      // SCANNED PDF: Fallback to OCR
-      ocrStatus.textContent = `Digital text not found. Preparing scan...`;
-      canvas.style.display = 'block';
-      
-      if (!ocrInitialized) {
-        await initializeOcr();
+    // Load next page when 80% scrolled
+    if (scrollTop + windowHeight >= documentHeight * 0.8) {
+      const nextPage = Math.max(...Array.from(loadedPages)) + 1;
+      if (nextPage <= totalPages) {
+        appendPage(nextPage);
       }
-      await performOcr(num);
-      
-    } else {
-      // DIGITAL PDF: Use the real text renderer
-      ocrStatus.textContent = `Page ${num} loaded (Digital).`;
-      canvas.style.display = 'block'; // Show canvas
-      textContentLayer.style.display = 'block'; // Show text layer
-
-      // This is the "magic" function
-      await pdfjsLib.renderTextLayer({
-          textContentSource: textContent,
-          container: textContentLayer,
-          viewport: viewport,
-          textDivs: []
-      }).promise;
     }
     
-    currentPageNum = num;
-    pageNumDisplay.textContent = `Page ${currentPageNum} / ${totalPages}`;
-    prevBtn.disabled = (currentPageNum <= 1);
-    nextBtn.disabled = (currentPageNum >= totalPages);
-    
-    window.scrollTo(0, 0);
-    
-  } catch (err) {
-    console.error(`Error rendering page ${num}:`, err);
-    ocrStatus.textContent = `Error on page ${num}: ${err.message}`;
-  }
+    // Update current page based on visible page
+    const pages = document.querySelectorAll('.pdf-page');
+    for (const page of pages) {
+      const rect = page.getBoundingClientRect();
+      if (rect.top <= windowHeight / 2 && rect.bottom >= windowHeight / 2) {
+        const pageNum = parseInt(page.getAttribute('data-page'));
+        if (pageNum !== currentPageNum) {
+          currentPageNum = pageNum;
+          pageNumDisplay.textContent = `Page ${currentPageNum} / ${totalPages}`;
+        }
+        break;
+      }
+    }
+  });
 }
 
-// --- NEW: Accessibility Control Logic ---
+// --- Accessibility Control Logic ---
 function setupAccessibilityControls() {
+    const pageContainer = document.getElementById('page-container');
+
     fontToggleBtn.addEventListener('click', () => {
         pageContainer.classList.toggle('opendyslexic-font');
         if (pageContainer.classList.contains('opendyslexic-font')) {
@@ -179,48 +186,79 @@ function setupAccessibilityControls() {
             pageContainer.style.fontFamily = 'sans-serif';
         }
     });
+    
+    einkToggleBtn.addEventListener('click', () => {
+        // Turn off AMOLED mode first
+        document.body.classList.remove('amoled-mode');
+        amoledToggleBtn.textContent = 'AMOLED Mode';
+        
+        document.body.classList.toggle('eink-mode');
+        if (document.body.classList.contains('eink-mode')) {
+            einkToggleBtn.textContent = 'Exit E Ink';
+            // Apply default contrast level
+            document.body.className = document.body.className.replace(/contrast-\d/g, '');
+            document.body.classList.add(`contrast-${contrastSlider.value}`);
+        } else {
+            einkToggleBtn.textContent = 'E Ink Mode';
+            // Remove contrast classes
+            document.body.className = document.body.className.replace(/contrast-\d/g, '');
+        }
+    });
+    
+    amoledToggleBtn.addEventListener('click', () => {
+        // Turn off E Ink mode first
+        document.body.classList.remove('eink-mode');
+        einkToggleBtn.textContent = 'E Ink Mode';
+        
+        document.body.classList.toggle('amoled-mode');
+        if (document.body.classList.contains('amoled-mode')) {
+            amoledToggleBtn.textContent = 'Exit AMOLED';
+            // Apply default contrast level
+            document.body.className = document.body.className.replace(/contrast-\d/g, '');
+            document.body.classList.add(`contrast-${contrastSlider.value}`);
+        } else {
+            amoledToggleBtn.textContent = 'AMOLED Mode';
+            // Remove contrast classes
+            document.body.className = document.body.className.replace(/contrast-\d/g, '');
+        }
+    });
 
     lineHeightSlider.addEventListener('input', (e) => {
-        // This will now control the *custom* text layer, not the whole page
-        textContentLayer.style.lineHeight = e.target.value;
+        pageContainer.style.lineHeight = e.target.value;
     });
 
     letterSpacingSlider.addEventListener('input', (e) => {
-        textContentLayer.style.letterSpacing = `${e.target.value}px`;
+        pageContainer.style.letterSpacing = `${e.target.value}px`;
     });
     
-    eInkBtn.addEventListener('click', () => {
-        document.body.classList.toggle('e-ink-mode');
-        // We also need to re-render the text layer for E-Ink
-        renderPage(currentPageNum); 
+    contrastSlider.addEventListener('input', (e) => {
+        if (document.body.classList.contains('eink-mode') || document.body.classList.contains('amoled-mode')) {
+            // Remove old contrast class and add new one
+            document.body.className = document.body.className.replace(/contrast-\d/g, '');
+            document.body.classList.add(`contrast-${e.target.value}`);
+        }
     });
 }
-
 
 // --- 3. MAIN STARTUP FUNCTION ---
 async function initializePdfViewer() {
   try {
     ocrStatus.textContent = "Preparing PDF...";
     
-    // Worker is loaded via HTML script tag
-    // pdfjsLib.GlobalWorkerOptions.workerSrc = chrome.runtime.getURL('pdf.worker.js');
-
-    // --- Streaming Logic ---
-    if (pdfUrl.startsWith('file://')) {
-      ocrStatus.textContent = "Optimizing local PDF for fast loading...";
-      pdfDoc = await loadLocalPdfWithStreaming(pdfUrl);
-    } else {
-      ocrStatus.textContent = "Loading web PDF...";
-      pdfDoc = await pdfjsLib.getDocument(pdfUrl).promise;
-    }
-    // --- END NEW LOGIC ---
+    // Direct loading for all PDFs (WORKING VERSION)
+    pdfDoc = await loadPdfDirect(pdfUrl);
 
     totalPages = pdfDoc.numPages;
+    pageInput.max = totalPages;
     
     // Setup controls *before* rendering
     setupAccessibilityControls();
+    setupScrollListener();
     
-    await renderPage(1);
+    // Load first page
+    await appendPage(1);
+    currentPageNum = 1;
+    pageNumDisplay.textContent = `Page 1 / ${totalPages}`;
 
   } catch (err) {
     console.error("PDF loading failed:", err);
@@ -231,6 +269,17 @@ async function initializePdfViewer() {
 // --- 4. EVENT LISTENERS & START ---
 prevBtn.addEventListener('click', () => { if (currentPageNum > 1) renderPage(currentPageNum - 1); });
 nextBtn.addEventListener('click', () => { if (currentPageNum < totalPages) renderPage(currentPageNum + 1); });
+
+// Page input functionality
+pageInput.addEventListener('keypress', (e) => {
+  if (e.key === 'Enter') {
+    const pageNum = parseInt(pageInput.value);
+    if (pageNum >= 1 && pageNum <= totalPages) {
+      renderPage(pageNum);
+    }
+    pageInput.value = '';
+  }
+});
 
 if (pdfUrl) {
   initializePdfViewer();
