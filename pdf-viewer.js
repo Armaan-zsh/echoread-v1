@@ -115,28 +115,8 @@ async function appendPage(num) {
       textDiv.style.fontSize = `${14 * currentZoom}px`;
       pdfContent.appendChild(textDiv);
       
-      // Also run OCR on digital PDF for OCR mode
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d');
-      const viewport = page.getViewport({ scale: 1.5 });
-      canvas.height = viewport.height;
-      canvas.width = viewport.width;
-      await page.render({ canvasContext: ctx, viewport: viewport }).promise;
-      
-      if (!ocrInitialized) {
-        await initializeOcr();
-      }
-      
-      if (ocrInitialized && tesseractWorker) {
-        try {
-          const { data: { text } } = await tesseractWorker.recognize(canvas);
-          ocrContent.innerHTML = text.replace(/\n/g, '<br>');
-        } catch (ocrErr) {
-          ocrContent.innerHTML = pageText; // Fallback to original text
-        }
-      } else {
-        ocrContent.innerHTML = pageText;
-      }
+      // For digital PDFs, just use original text for OCR mode
+      ocrContent.innerHTML = pageText;
     }
     
     pageDiv.appendChild(pdfContent);
@@ -235,6 +215,51 @@ function setupAccessibilityControls() {
         });
     });
     
+    einkToggleBtn.addEventListener('click', () => {
+        document.body.classList.remove('amoled-mode');
+        amoledToggleBtn.textContent = 'AMOLED Mode';
+        
+        document.body.classList.toggle('eink-mode');
+        if (document.body.classList.contains('eink-mode')) {
+            einkToggleBtn.textContent = 'Exit E Ink';
+            document.body.className = document.body.className.replace(/contrast-\d/g, '');
+            document.body.classList.add(`contrast-${contrastSlider.value}`);
+        } else {
+            einkToggleBtn.textContent = 'E Ink Mode';
+            document.body.className = document.body.className.replace(/contrast-\d/g, '');
+        }
+    });
+    
+    amoledToggleBtn.addEventListener('click', () => {
+        document.body.classList.remove('eink-mode');
+        einkToggleBtn.textContent = 'E Ink Mode';
+        
+        document.body.classList.toggle('amoled-mode');
+        if (document.body.classList.contains('amoled-mode')) {
+            amoledToggleBtn.textContent = 'Exit AMOLED';
+            document.body.className = document.body.className.replace(/contrast-\d/g, '');
+            document.body.classList.add(`contrast-${contrastSlider.value}`);
+        } else {
+            amoledToggleBtn.textContent = 'AMOLED Mode';
+            document.body.className = document.body.className.replace(/contrast-\d/g, '');
+        }
+    });
+
+    lineHeightSlider.addEventListener('input', (e) => {
+        pageContainer.style.lineHeight = e.target.value;
+    });
+
+    letterSpacingSlider.addEventListener('input', (e) => {
+        pageContainer.style.letterSpacing = `${e.target.value}px`;
+    });
+    
+    contrastSlider.addEventListener('input', (e) => {
+        if (document.body.classList.contains('eink-mode') || document.body.classList.contains('amoled-mode')) {
+            document.body.className = document.body.className.replace(/contrast-\d/g, '');
+            document.body.classList.add(`contrast-${e.target.value}`);
+        }
+    });
+    
     // Zoom controls
     zoomInBtn.addEventListener('click', () => {
         currentZoom = Math.min(currentZoom + 0.25, 3.0);
@@ -270,64 +295,10 @@ function setupAccessibilityControls() {
 // Update zoom function
 function updateZoom() {
     zoomLevel.textContent = Math.round(currentZoom * 100) + '%';
-    // Clear and reload current pages with new zoom
     const currentPage = currentPageNum;
     scrollContainer.innerHTML = '';
     loadedPages.clear();
     appendPage(currentPage);
-}
-    
-    einkToggleBtn.addEventListener('click', () => {
-        // Turn off AMOLED mode first
-        document.body.classList.remove('amoled-mode');
-        amoledToggleBtn.textContent = 'AMOLED Mode';
-        
-        document.body.classList.toggle('eink-mode');
-        if (document.body.classList.contains('eink-mode')) {
-            einkToggleBtn.textContent = 'Exit E Ink';
-            // Apply default contrast level
-            document.body.className = document.body.className.replace(/contrast-\d/g, '');
-            document.body.classList.add(`contrast-${contrastSlider.value}`);
-        } else {
-            einkToggleBtn.textContent = 'E Ink Mode';
-            // Remove contrast classes
-            document.body.className = document.body.className.replace(/contrast-\d/g, '');
-        }
-    });
-    
-    amoledToggleBtn.addEventListener('click', () => {
-        // Turn off E Ink mode first
-        document.body.classList.remove('eink-mode');
-        einkToggleBtn.textContent = 'E Ink Mode';
-        
-        document.body.classList.toggle('amoled-mode');
-        if (document.body.classList.contains('amoled-mode')) {
-            amoledToggleBtn.textContent = 'Exit AMOLED';
-            // Apply default contrast level
-            document.body.className = document.body.className.replace(/contrast-\d/g, '');
-            document.body.classList.add(`contrast-${contrastSlider.value}`);
-        } else {
-            amoledToggleBtn.textContent = 'AMOLED Mode';
-            // Remove contrast classes
-            document.body.className = document.body.className.replace(/contrast-\d/g, '');
-        }
-    });
-
-    lineHeightSlider.addEventListener('input', (e) => {
-        pageContainer.style.lineHeight = e.target.value;
-    });
-
-    letterSpacingSlider.addEventListener('input', (e) => {
-        pageContainer.style.letterSpacing = `${e.target.value}px`;
-    });
-    
-    contrastSlider.addEventListener('input', (e) => {
-        if (document.body.classList.contains('eink-mode') || document.body.classList.contains('amoled-mode')) {
-            // Remove old contrast class and add new one
-            document.body.className = document.body.className.replace(/contrast-\d/g, '');
-            document.body.classList.add(`contrast-${e.target.value}`);
-        }
-    });
 }
 
 // --- 3. MAIN STARTUP FUNCTION ---
