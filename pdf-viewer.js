@@ -1,4 +1,4 @@
-// --- PDF VIEWER v11.0 (RESTORED WITH ALL FEATURES) ---
+// --- PDF VIEWER v11.1 (WORKING + MINIMAL FEATURES) ---
 
 // --- 1. GET UI ELEMENTS ---
 let pdfDoc = null;
@@ -9,7 +9,6 @@ let ocrInitialized = false;
 let loadedPages = new Set();
 let isLoading = false;
 let currentZoom = 1.0;
-let isOcrMode = false;
 
 const pageNumDisplay = document.getElementById('page-num');
 const ocrStatus = document.getElementById('ocr-status');
@@ -45,7 +44,7 @@ async function loadPdfDirect(fileUrl) {
   return pdfjsLib.getDocument(uint8Array).promise;
 }
 
-// Append page to scroll container
+// Append page to scroll container (ORIGINAL WORKING VERSION)
 async function appendPage(num) {
   if (loadedPages.has(num) || isLoading || num > totalPages) return;
   
@@ -72,14 +71,6 @@ async function appendPage(num) {
       }
     }
 
-    // Create PDF content container
-    const pdfContent = document.createElement('div');
-    pdfContent.className = 'pdf-content';
-    
-    // Create OCR content container
-    const ocrContent = document.createElement('div');
-    ocrContent.className = 'ocr-content textLayer';
-    
     if (pageText.trim().length < 50) { // SCANNED PDF
       const canvas = document.createElement('canvas');
       const ctx = canvas.getContext('2d');
@@ -92,7 +83,7 @@ async function appendPage(num) {
       canvas.style.height = 'auto';
       
       await page.render({ canvasContext: ctx, viewport: viewport }).promise;
-      pdfContent.appendChild(canvas);
+      pageDiv.appendChild(canvas);
       
       // OCR for scanned pages
       if (!ocrInitialized) {
@@ -102,10 +93,13 @@ async function appendPage(num) {
       if (ocrInitialized && tesseractWorker) {
         try {
           const { data: { text } } = await tesseractWorker.recognize(canvas);
-          ocrContent.innerHTML = text.replace(/\n/g, '<br>');
+          const textDiv = document.createElement('div');
+          textDiv.className = 'textLayer ocr-text';
+          textDiv.innerHTML = text.replace(/\n/g, '<br>');
+          textDiv.style.display = 'none'; // Hidden by default
+          pageDiv.appendChild(textDiv);
         } catch (ocrErr) {
           console.error('OCR recognition failed:', ocrErr);
-          ocrContent.innerHTML = 'OCR failed for this page';
         }
       }
     } else { // DIGITAL PDF
@@ -113,14 +107,8 @@ async function appendPage(num) {
       textDiv.className = 'textLayer';
       textDiv.innerHTML = pageText;
       textDiv.style.fontSize = `${14 * currentZoom}px`;
-      pdfContent.appendChild(textDiv);
-      
-      // For digital PDFs, just use original text for OCR mode
-      ocrContent.innerHTML = pageText;
+      pageDiv.appendChild(textDiv);
     }
-    
-    pageDiv.appendChild(pdfContent);
-    pageDiv.appendChild(ocrContent);
     
     scrollContainer.appendChild(pageDiv);
     ocrStatus.textContent = `Page ${num} loaded`;
@@ -198,6 +186,41 @@ function setupScrollListener() {
   });
 }
 
+// Simple zoom function
+function updateZoom() {
+  zoomLevel.textContent = Math.round(currentZoom * 100) + '%';
+  // Apply zoom to existing text layers
+  const textLayers = document.querySelectorAll('.textLayer');
+  textLayers.forEach(layer => {
+    if (!layer.classList.contains('ocr-text')) {
+      layer.style.fontSize = `${14 * currentZoom}px`;
+    }
+  });
+}
+
+// Simple view mode toggle
+function toggleViewMode() {
+  const canvases = document.querySelectorAll('canvas');
+  const textLayers = document.querySelectorAll('.textLayer:not(.ocr-text)');
+  const ocrTexts = document.querySelectorAll('.ocr-text');
+  
+  if (document.body.classList.contains('ocr-mode')) {
+    // Switch to PDF mode
+    canvases.forEach(canvas => canvas.style.display = 'block');
+    textLayers.forEach(layer => layer.style.display = 'block');
+    ocrTexts.forEach(ocr => ocr.style.display = 'none');
+    viewModeBtn.textContent = 'OCR Mode';
+    document.body.classList.remove('ocr-mode');
+  } else {
+    // Switch to OCR mode
+    canvases.forEach(canvas => canvas.style.display = 'none');
+    textLayers.forEach(layer => layer.style.display = 'none');
+    ocrTexts.forEach(ocr => ocr.style.display = 'block');
+    viewModeBtn.textContent = 'PDF Mode';
+    document.body.classList.add('ocr-mode');
+  }
+}
+
 // --- Accessibility Control Logic ---
 function setupAccessibilityControls() {
     const pageContainer = document.getElementById('page-container');
@@ -260,7 +283,7 @@ function setupAccessibilityControls() {
         }
     });
     
-    // Zoom controls
+    // Simple zoom controls
     zoomInBtn.addEventListener('click', () => {
         currentZoom = Math.min(currentZoom + 0.25, 3.0);
         updateZoom();
@@ -282,23 +305,7 @@ function setupAccessibilityControls() {
     });
     
     // View mode toggle
-    viewModeBtn.addEventListener('click', () => {
-        document.body.classList.toggle('ocr-mode');
-        if (document.body.classList.contains('ocr-mode')) {
-            viewModeBtn.textContent = 'PDF Mode';
-        } else {
-            viewModeBtn.textContent = 'OCR Mode';
-        }
-    });
-}
-
-// Update zoom function
-function updateZoom() {
-    zoomLevel.textContent = Math.round(currentZoom * 100) + '%';
-    const currentPage = currentPageNum;
-    scrollContainer.innerHTML = '';
-    loadedPages.clear();
-    appendPage(currentPage);
+    viewModeBtn.addEventListener('click', toggleViewMode);
 }
 
 // --- 3. MAIN STARTUP FUNCTION ---
