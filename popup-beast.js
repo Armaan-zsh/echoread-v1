@@ -96,26 +96,125 @@ cleanViewBtn.addEventListener('click', () => {
 });
 
 function parseArticleWithReadability(pageUrl) {
+  // Check if already in focus mode
+  if (document.getElementById('echoread-focus-mode')) {
+    // Exit focus mode
+    const styleEl = document.getElementById('echoread-focus-mode');
+    styleEl.remove();
+    return;
+  }
+  
   window.scrollTo(0, document.body.scrollHeight);
   setTimeout(() => {
     const documentClone = document.cloneNode(true);
-    const article = new Readability(documentClone, { charThreshold: 500, pageUrl: pageUrl }).parse();
+    const reader = new Readability(documentClone, { charThreshold: 500, pageUrl: pageUrl });
+    const article = reader.parse();
+    
     if (article && article.content) {
-      const newHtml = `
-        <html><head><title>${article.title}</title><base href="${pageUrl}">
-        <style>
-          body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f5f5f5; color: #1a1a1a; padding: 2% 10%; margin: 0; font-size: 20px; line-height: 1.6; max-width: 800px; margin: 0 auto; }
-          h1, h2, h3 { line-height: 1.2; } img, video, figure { max-width: 100%; height: auto; } a { color: #007bff; text-decoration: none; } a:hover { text-decoration: underline; }
-        </style></head>
-        <body><h1>${article.title}</h1>${article.content}</body></html>
-      `;
-      document.open();
-      document.write(newHtml);
-      document.close();
+      // Find the main content element in the original DOM
+      const contentSelectors = [
+        'article', '[role="main"]', '.post-content', '.entry-content', 
+        '.article-content', '.content', '.post', '.article-body',
+        'main', '.main-content', '#content', '#main'
+      ];
+      
+      let mainElement = null;
+      for (const selector of contentSelectors) {
+        const elements = document.querySelectorAll(selector);
+        for (const el of elements) {
+          if (el.textContent.length > 500) {
+            mainElement = el;
+            break;
+          }
+        }
+        if (mainElement) break;
+      }
+      
+      if (mainElement) {
+        applySurgicalFocus(mainElement);
+      } else {
+        alert("Could not identify main content area for focus mode.");
+      }
     } else {
       alert("Sorry, EchoRead couldn't find an article on this page.");
     }
   }, 1000);
+}
+
+function applySurgicalFocus(mainElement) {
+  // Create focus mode CSS
+  const focusCSS = `
+    /* Hide everything first */
+    * {
+      visibility: hidden !important;
+    }
+    
+    /* Hide common junk elements completely */
+    nav, header, footer, aside, sidebar,
+    [role="banner"], [role="navigation"], [role="complementary"],
+    .nav, .navbar, .header, .footer, .sidebar, .aside,
+    .advertisement, .ad, .ads, .social, .share,
+    .comments, .related, .recommended, .popup, .modal {
+      display: none !important;
+    }
+    
+    /* Show body and html */
+    html, body {
+      visibility: visible !important;
+      background: #f8f9fa !important;
+      margin: 0 !important;
+      padding: 20px !important;
+    }
+    
+    /* Center and focus the main content */
+    .echoread-focused-content {
+      visibility: visible !important;
+      display: block !important;
+      max-width: 800px !important;
+      margin: 0 auto !important;
+      padding: 40px !important;
+      background: white !important;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1) !important;
+      border-radius: 8px !important;
+    }
+    
+    /* Show all children of focused content */
+    .echoread-focused-content * {
+      visibility: visible !important;
+    }
+    
+    /* Improve readability */
+    .echoread-focused-content {
+      line-height: 1.6 !important;
+      font-size: 18px !important;
+    }
+    
+    .echoread-focused-content img {
+      max-width: 100% !important;
+      height: auto !important;
+      margin: 20px 0 !important;
+    }
+  `;
+  
+  // Add focus mode styles
+  const styleEl = document.createElement('style');
+  styleEl.id = 'echoread-focus-mode';
+  styleEl.textContent = focusCSS;
+  document.head.appendChild(styleEl);
+  
+  // Mark the main element as focused
+  mainElement.classList.add('echoread-focused-content');
+  
+  // Walk up the DOM tree to make parent containers visible
+  let parent = mainElement.parentElement;
+  while (parent && parent !== document.body) {
+    parent.style.visibility = 'visible';
+    parent.style.display = 'block';
+    parent = parent.parentElement;
+  }
+  
+  // Scroll to the focused content
+  mainElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 fontToggleBtn.addEventListener('click', () => {
