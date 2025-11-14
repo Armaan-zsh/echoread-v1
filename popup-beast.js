@@ -297,21 +297,24 @@ savePdfBtn.addEventListener('click', () => {
     const pdfUrl = tabs[0].url;
     const pdfTitle = tabs[0].title || 'PDF Document';
     
-    chrome.storage.local.get(['echoread_library'], (result) => {
-      const library = result.echoread_library || [];
-      const item = {
-        id: Date.now(),
-        title: pdfTitle,
-        url: pdfUrl,
-        type: 'pdf',
-        content: 'PDF file - open in EchoRead viewer to read',
-        savedAt: new Date().toISOString()
-      };
-      
-      library.unshift(item);
-      chrome.storage.local.set({ echoread_library: library }, () => {
+    const item = {
+      id: Date.now(),
+      title: pdfTitle,
+      url: pdfUrl,
+      type: 'pdf',
+      content: 'PDF file - open in EchoRead viewer to read',
+      savedAt: new Date().toISOString()
+    };
+    
+    chrome.runtime.sendMessage({
+      action: 'saveToLibrary',
+      item: item
+    }, (response) => {
+      if (response && response.success) {
         alert('PDF saved to library!');
-      });
+      } else {
+        alert('Failed to save PDF');
+      }
     });
   });
 });
@@ -330,12 +333,16 @@ function saveArticleToLibrary(pageUrl, pageTitle) {
       savedAt: new Date().toISOString()
     };
     
-    chrome.storage.local.get(['echoread_library'], (result) => {
-      const library = result.echoread_library || [];
-      library.unshift(item);
-      chrome.storage.local.set({ echoread_library: library }, () => {
+    // Send message to background script to save
+    chrome.runtime.sendMessage({
+      action: 'saveToLibrary',
+      item: item
+    }, (response) => {
+      if (response && response.success) {
         alert('Article saved to library!');
-      });
+      } else {
+        alert('Failed to save article');
+      }
     });
   } else {
     alert('Could not extract article content');
@@ -352,5 +359,5 @@ if (viewLibraryBtnPdf) {
 }
 
 function openLibrary() {
-  chrome.tabs.create({ url: chrome.runtime.getURL('library.html') });
+  chrome.runtime.sendMessage({ action: 'openLibrary' });
 }

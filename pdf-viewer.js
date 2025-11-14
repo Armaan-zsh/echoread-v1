@@ -383,12 +383,15 @@ function setupAccessibilityControls() {
             savedAt: new Date().toISOString()
         };
         
-        chrome.storage.local.get(['echoread_library'], (result) => {
-            const library = result.echoread_library || [];
-            library.unshift(item);
-            chrome.storage.local.set({ echoread_library: library }, () => {
+        chrome.runtime.sendMessage({
+            action: 'saveToLibrary',
+            item: item
+        }, (response) => {
+            if (response && response.success) {
                 alert('PDF saved to library!');
-            });
+            } else {
+                alert('Failed to save PDF');
+            }
         });
     });
     

@@ -13,6 +13,9 @@
   "action": {
     "default_popup": "popup.html"
   },
+  "background": {
+    "service_worker": "background.js"
+  },
 
   "web_accessible_resources": [
     {
@@ -25,7 +28,8 @@
         "pdf-viewer.js",
         "pdf.js",
         "pdf.worker.js",
-        "tesseract-core.wasm.js"
+        "tesseract-core.wasm.js",
+        "library.html"
       ],
       "matches": ["<all_urls>"]
     }
