@@ -145,17 +145,33 @@ function applySurgicalFocus(mainElement) {
   // Create focus mode CSS
   const focusCSS = `
     /* Hide everything first */
-    * {
-      visibility: hidden !important;
+    body > * {
+      display: none !important;
     }
     
-    /* Hide common junk elements completely */
-    nav, header, footer, aside, sidebar,
-    [role="banner"], [role="navigation"], [role="complementary"],
-    .nav, .navbar, .header, .footer, .sidebar, .aside,
-    .advertisement, .ad, .ads, .social, .share,
-    .comments, .related, .recommended, .popup, .modal {
+    /* Also hide fixed/sticky elements */
+    [style*="position: fixed"], [style*="position: sticky"],
+    .fixed, .sticky, .floating {
       display: none !important;
+    }
+    
+    /* Hide ALL distractions completely */
+    nav, header, footer, aside, sidebar, menu,
+    [role="banner"], [role="navigation"], [role="complementary"], [role="contentinfo"],
+    .nav, .navbar, .header, .footer, .sidebar, .aside, .menu,
+    .advertisement, .ad, .ads, .social, .share, .sharing,
+    .comments, .related, .recommended, .popup, .modal, .overlay,
+    .sticky, .fixed, .floating, .toast, .notification,
+    .breadcrumb, .pagination, .tags, .categories,
+    .author-bio, .newsletter, .subscribe, .cta,
+    iframe[src*="ads"], iframe[src*="doubleclick"],
+    [class*="ad-"], [id*="ad-"], [class*="ads-"], [id*="ads-"],
+    [class*="banner"], [class*="promo"], [class*="widget"] {
+      display: none !important;
+      visibility: hidden !important;
+      opacity: 0 !important;
+      position: absolute !important;
+      left: -9999px !important;
     }
     
     /* Show body and html */
@@ -163,7 +179,17 @@ function applySurgicalFocus(mainElement) {
       visibility: visible !important;
       background: #f8f9fa !important;
       margin: 0 !important;
-      padding: 20px !important;
+      padding: 0 !important;
+      overflow-x: hidden !important;
+    }
+    
+    /* Focus container */
+    .echoread-focus-container {
+      display: block !important;
+      visibility: visible !important;
+      padding: 40px 20px !important;
+      background: #f8f9fa !important;
+      min-height: 100vh !important;
     }
     
     /* Center and focus the main content */
@@ -205,16 +231,26 @@ function applySurgicalFocus(mainElement) {
   // Mark the main element as focused
   mainElement.classList.add('echoread-focused-content');
   
-  // Walk up the DOM tree to make parent containers visible
-  let parent = mainElement.parentElement;
-  while (parent && parent !== document.body) {
-    parent.style.visibility = 'visible';
-    parent.style.display = 'block';
-    parent = parent.parentElement;
-  }
+  // Create a new container for just the content
+  const focusContainer = document.createElement('div');
+  focusContainer.className = 'echoread-focus-container';
+  focusContainer.style.cssText = `
+    display: block !important;
+    visibility: visible !important;
+    position: relative !important;
+    z-index: 999999 !important;
+  `;
+  
+  // Clone the main content to avoid breaking the original
+  const contentClone = mainElement.cloneNode(true);
+  contentClone.className = 'echoread-focused-content';
+  focusContainer.appendChild(contentClone);
+  
+  // Add to body
+  document.body.appendChild(focusContainer);
   
   // Scroll to the focused content
-  mainElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  focusContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 fontToggleBtn.addEventListener('click', () => {
