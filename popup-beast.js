@@ -285,7 +285,26 @@ saveToLibraryBtn.addEventListener('click', () => {
     chrome.scripting.executeScript({ target: { tabId: tabs[0].id }, files: ['readability.js'] }, () => {
       chrome.scripting.executeScript({
         target: { tabId: tabs[0].id },
-        function: saveArticleToLibrary,
+        function: (pageUrl, pageTitle) => {
+          const documentClone = document.cloneNode(true);
+          const article = new Readability(documentClone, { charThreshold: 500, pageUrl: pageUrl }).parse();
+          
+          if (article && article.content) {
+            const item = {
+              id: Date.now(),
+              title: article.title || pageTitle,
+              url: pageUrl,
+              type: 'article',
+              content: (article.textContent || article.content.replace(/<[^>]*>/g, '')).substring(0, 500),
+              savedAt: new Date().toISOString()
+            };
+            
+            // Send back to popup
+            chrome.runtime.sendMessage({ action: 'articleExtracted', item: item });
+          } else {
+            chrome.runtime.sendMessage({ action: 'extractionFailed' });
+          }
+        },
         args: [tabs[0].url, tabs[0].title]
       });
     });
@@ -306,48 +325,32 @@ savePdfBtn.addEventListener('click', () => {
       savedAt: new Date().toISOString()
     };
     
-    chrome.runtime.sendMessage({
-      action: 'saveToLibrary',
-      item: item
-    }, (response) => {
-      if (response && response.success) {
+    chrome.storage.local.get(['echoread_library'], (result) => {
+      const library = result.echoread_library || [];
+      library.unshift(item);
+      chrome.storage.local.set({ echoread_library: library }, () => {
         alert('PDF saved to library!');
-      } else {
-        alert('Failed to save PDF');
-      }
+      });
     });
   });
 });
 
-function saveArticleToLibrary(pageUrl, pageTitle) {
-  const documentClone = document.cloneNode(true);
-  const article = new Readability(documentClone, { charThreshold: 500, pageUrl: pageUrl }).parse();
-  
-  if (article && article.content) {
-    const item = {
-      id: Date.now(),
-      title: article.title || pageTitle,
-      url: pageUrl,
-      type: 'article',
-      content: article.textContent || article.content.replace(/<[^>]*>/g, ''),
-      savedAt: new Date().toISOString()
-    };
-    
-    // Send message to background script to save
-    chrome.runtime.sendMessage({
-      action: 'saveToLibrary',
-      item: item
-    }, (response) => {
-      if (response && response.success) {
+// Handle messages from content script
+chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  if (request.action === 'articleExtracted') {
+    chrome.storage.local.get(['echoread_library'], (result) => {
+      const library = result.echoread_library || [];
+      library.unshift(request.item);
+      chrome.storage.local.set({ echoread_library: library }, () => {
         alert('Article saved to library!');
-      } else {
-        alert('Failed to save article');
-      }
+      });
     });
-  } else {
+  }
+  
+  if (request.action === 'extractionFailed') {
     alert('Could not extract article content');
   }
-}
+});
 
 // --- LIBRARY VIEWER ---
 
@@ -359,5 +362,5 @@ if (viewLibraryBtnPdf) {
 }
 
 function openLibrary() {
-  chrome.runtime.sendMessage({ action: 'openLibrary' });
+  chrome.tabs.create({ url: chrome.runtime.getURL('library.html') });
 }
