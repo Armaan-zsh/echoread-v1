@@ -96,128 +96,26 @@ cleanViewBtn.addEventListener('click', () => {
 });
 
 function parseArticleWithReadability(pageUrl) {
-  // Check if already in focus mode
-  if (document.getElementById('echoread-focus-mode')) {
-    // Exit focus mode
-    const styleEl = document.getElementById('echoread-focus-mode');
-    styleEl.remove();
-    return;
-  }
-  
   window.scrollTo(0, document.body.scrollHeight);
   setTimeout(() => {
     const documentClone = document.cloneNode(true);
-    const reader = new Readability(documentClone, { charThreshold: 500, pageUrl: pageUrl });
-    const article = reader.parse();
-    
+    const article = new Readability(documentClone, { charThreshold: 500, pageUrl: pageUrl }).parse();
     if (article && article.content) {
-      // Find the main content element in the original DOM
-      const contentSelectors = [
-        'article', '[role="main"]', '.post-content', '.entry-content', 
-        '.article-content', '.content', '.post', '.article-body',
-        'main', '.main-content', '#content', '#main'
-      ];
-      
-      let mainElement = null;
-      for (const selector of contentSelectors) {
-        const elements = document.querySelectorAll(selector);
-        for (const el of elements) {
-          if (el.textContent.length > 500) {
-            mainElement = el;
-            break;
-          }
-        }
-        if (mainElement) break;
-      }
-      
-      if (mainElement) {
-        applySurgicalFocus(mainElement);
-      } else {
-        alert("Could not identify main content area for focus mode.");
-      }
+      const newHtml = `
+        <html><head><title>${article.title}</title><base href="${pageUrl}">
+        <style>
+          body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f5f5f5; color: #1a1a1a; padding: 2% 10%; margin: 0; font-size: 20px; line-height: 1.6; max-width: 800px; margin: 0 auto; }
+          h1, h2, h3 { line-height: 1.2; } img, video, figure { max-width: 100%; height: auto; } a { color: #007bff; text-decoration: none; } a:hover { text-decoration: underline; }
+        </style></head>
+        <body><h1>${article.title}</h1>${article.content}</body></html>
+      `;
+      document.open();
+      document.write(newHtml);
+      document.close();
     } else {
       alert("Sorry, EchoRead couldn't find an article on this page.");
     }
   }, 1000);
-}
-
-function applySurgicalFocus(mainElement) {
-  // Create focus mode CSS - just hide distractions
-  const focusCSS = `
-    /* Hide ALL possible distracting elements */
-    nav, header, footer, aside, sidebar, menu, form,
-    [role="banner"], [role="navigation"], [role="complementary"], [role="contentinfo"],
-    .nav, .navbar, .header, .footer, .sidebar, .aside, .menu, .navigation,
-    .advertisement, .ad, .ads, .social, .share, .sharing, .follow,
-    .comments, .related, .recommended, .popup, .modal, .overlay, .dropdown,
-    .sticky, .fixed, .floating, .toast, .notification, .alert, .banner,
-    .breadcrumb, .pagination, .tags, .categories, .meta, .byline,
-    .author-bio, .newsletter, .subscribe, .cta, .call-to-action,
-    iframe, .widget, .embed, .plugin, .addon,
-    [class*="ad-"], [id*="ad-"], [class*="ads-"], [id*="ads-"],
-    [class*="nav"], [id*="nav"], [class*="menu"], [id*="menu"],
-    [class*="header"], [id*="header"], [class*="footer"], [id*="footer"],
-    [class*="sidebar"], [id*="sidebar"], [class*="widget"], [id*="widget"],
-    [style*="position: fixed"], [style*="position: sticky"],
-    [style*="z-index: 9"], [style*="z-index: 1"] {
-      display: none !important;
-      visibility: hidden !important;
-      opacity: 0 !important;
-      height: 0 !important;
-      width: 0 !important;
-      overflow: hidden !important;
-      position: absolute !important;
-      left: -9999px !important;
-      top: -9999px !important;
-    }
-    
-    /* Target common website structures */
-    body > div:not(.echoread-focused):not([class*="content"]):not([id*="content"]),
-    body > section:not(.echoread-focused):not([class*="content"]):not([id*="content"]),
-    body > article:not(.echoread-focused) > *:not([class*="content"]):not([id*="content"]) {
-      display: none !important;
-    }
-    
-    /* Show and center only the main content area */
-    .echoread-focused {
-      display: block !important;
-      visibility: visible !important;
-      opacity: 1 !important;
-      position: relative !important;
-      max-width: 800px !important;
-      margin: 40px auto !important;
-      padding: 20px !important;
-      z-index: 999999 !important;
-      background: white !important;
-      box-shadow: 0 0 20px rgba(0,0,0,0.1) !important;
-    }
-    
-    /* Ensure all content within is visible */
-    .echoread-focused * {
-      display: block !important;
-      visibility: visible !important;
-      opacity: 1 !important;
-      position: static !important;
-    }
-    
-    /* Clean body background */
-    body {
-      background: #f5f5f5 !important;
-      overflow-x: hidden !important;
-    }
-  `;
-  
-  // Add focus mode styles
-  const styleEl = document.createElement('style');
-  styleEl.id = 'echoread-focus-mode';
-  styleEl.textContent = focusCSS;
-  document.head.appendChild(styleEl);
-  
-  // Just mark the main element and center it
-  mainElement.classList.add('echoread-focused');
-  
-  // Scroll to the content
-  mainElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 fontToggleBtn.addEventListener('click', () => {
