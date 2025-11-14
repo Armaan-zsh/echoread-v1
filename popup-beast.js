@@ -142,20 +142,9 @@ function parseArticleWithReadability(pageUrl) {
 }
 
 function applySurgicalFocus(mainElement) {
-  // Create focus mode CSS
+  // Create focus mode CSS - just hide distractions
   const focusCSS = `
-    /* Hide everything first */
-    body > * {
-      display: none !important;
-    }
-    
-    /* Also hide fixed/sticky elements */
-    [style*="position: fixed"], [style*="position: sticky"],
-    .fixed, .sticky, .floating {
-      display: none !important;
-    }
-    
-    /* Hide ALL distractions completely */
+    /* Hide all distracting elements */
     nav, header, footer, aside, sidebar, menu,
     [role="banner"], [role="navigation"], [role="complementary"], [role="contentinfo"],
     .nav, .navbar, .header, .footer, .sidebar, .aside, .menu,
@@ -164,61 +153,16 @@ function applySurgicalFocus(mainElement) {
     .sticky, .fixed, .floating, .toast, .notification,
     .breadcrumb, .pagination, .tags, .categories,
     .author-bio, .newsletter, .subscribe, .cta,
-    iframe[src*="ads"], iframe[src*="doubleclick"],
-    [class*="ad-"], [id*="ad-"], [class*="ads-"], [id*="ads-"],
-    [class*="banner"], [class*="promo"], [class*="widget"] {
+    iframe, .widget, [class*="ad-"], [id*="ad-"],
+    [style*="position: fixed"], [style*="position: sticky"] {
       display: none !important;
-      visibility: hidden !important;
-      opacity: 0 !important;
-      position: absolute !important;
-      left: -9999px !important;
     }
     
-    /* Show body and html */
-    html, body {
-      visibility: visible !important;
-      background: #f8f9fa !important;
-      margin: 0 !important;
-      padding: 0 !important;
-      overflow-x: hidden !important;
-    }
-    
-    /* Focus container */
-    .echoread-focus-container {
-      display: block !important;
-      visibility: visible !important;
-      padding: 40px 20px !important;
-      background: #f8f9fa !important;
-      min-height: 100vh !important;
-    }
-    
-    /* Center and focus the main content */
-    .echoread-focused-content {
-      visibility: visible !important;
-      display: block !important;
+    /* Center the main content area */
+    .echoread-focused {
       max-width: 800px !important;
-      margin: 0 auto !important;
-      padding: 40px !important;
-      background: white !important;
-      box-shadow: 0 2px 10px rgba(0,0,0,0.1) !important;
-      border-radius: 8px !important;
-    }
-    
-    /* Show all children of focused content */
-    .echoread-focused-content * {
-      visibility: visible !important;
-    }
-    
-    /* Improve readability */
-    .echoread-focused-content {
-      line-height: 1.6 !important;
-      font-size: 18px !important;
-    }
-    
-    .echoread-focused-content img {
-      max-width: 100% !important;
-      height: auto !important;
-      margin: 20px 0 !important;
+      margin: 40px auto !important;
+      padding: 0 20px !important;
     }
   `;
   
@@ -228,29 +172,11 @@ function applySurgicalFocus(mainElement) {
   styleEl.textContent = focusCSS;
   document.head.appendChild(styleEl);
   
-  // Mark the main element as focused
-  mainElement.classList.add('echoread-focused-content');
+  // Just mark the main element and center it
+  mainElement.classList.add('echoread-focused');
   
-  // Create a new container for just the content
-  const focusContainer = document.createElement('div');
-  focusContainer.className = 'echoread-focus-container';
-  focusContainer.style.cssText = `
-    display: block !important;
-    visibility: visible !important;
-    position: relative !important;
-    z-index: 999999 !important;
-  `;
-  
-  // Clone the main content to avoid breaking the original
-  const contentClone = mainElement.cloneNode(true);
-  contentClone.className = 'echoread-focused-content';
-  focusContainer.appendChild(contentClone);
-  
-  // Add to body
-  document.body.appendChild(focusContainer);
-  
-  // Scroll to the focused content
-  focusContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  // Scroll to the content
+  mainElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 fontToggleBtn.addEventListener('click', () => {
